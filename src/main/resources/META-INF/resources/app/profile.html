@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile — Open Pace</title>
+  <link rel="stylesheet" href="/app/css/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/app/js/api.js"></script>
+  <script src="/app/js/federation.js"></script>
+</head>
+<body x-data="profileApp()" x-init="init()">
+
+  <nav class="nav">
+    <div class="nav-brand">🏃 Open<span>Pace</span></div>
+    <div class="nav-links">
+      <a href="/app/">Universe</a>
+      <a href="/app/discover.html">Discover</a>
+      <a href="/app/feed.html">Feed</a>
+      <a href="/app/new.html">New Activity</a>
+      <a href="/app/leaderboards.html">Leaderboards</a>
+    </div>
+    <div class="nav-auth">
+      <template x-if="isLoggedIn">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <a :href="'/app/profile.html?user=' + currentUser" x-text="currentUser" style="color:var(--accent-green);"></a>
+          <button @click="logout()" class="btn btn-secondary btn-sm">Logout</button>
+        </div>
+      </template>
+      <template x-if="!isLoggedIn">
+        <a href="/app/discover.html" class="btn btn-primary btn-sm">Login</a>
+      </template>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Loading -->
+    <template x-if="loading">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading profile...</p>
+      </div>
+    </template>
+
+    <!-- Not Found -->
+    <template x-if="!loading && !profile">
+      <div class="card" style="text-align:center;padding:3rem;">
+        <div class="icon" style="font-size:2rem;">👤</div>
+        <p style="margin:1rem 0;color:var(--text-secondary);">User not found.</p>
+        <a href="/app/discover.html" class="btn btn-primary">Discover Athletes</a>
+      </div>
+    </template>
+
+    <!-- Profile -->
+    <template x-if="!loading && profile">
+      <div>
+        <div class="card" style="margin-bottom:1.5rem;">
+          <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+            <div class="activity-avatar" style="width:80px;height:80px;font-size:2rem;"
+                 x-text="(profile.username || '?')[0]?.toUpperCase()"></div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <h1 style="font-size:1.5rem;" x-text="profile.name || profile.username"></h1>
+                <span class="badge" :class="profile.isLocal ? 'badge-local' : 'badge-remote'"
+                      x-text="profile.isLocal ? '🏠 local' : '🌐 ' + profile.instance"></span>
+              </div>
+              <p style="color:var(--text-secondary);margin-top:0.25rem;">
+                @<span x-text="profile.username"></span>
+                <template x-if="!profile.isLocal">
+                  <span> · 🌐 <span x-text="profile.instance"></span></span>
+                </template>
+              </p>
+              <div style="display:flex;gap:1.5rem;margin-top:0.75rem;">
+                <div class="stat-card" style="padding:0.5rem 1rem;">
+                  <div class="stat-value" style="font-size:1.2rem;" x-text="profile.followers || 0"></div>
+                  <div class="stat-label" style="font-size:0.7rem;">Followers</div>
+                </div>
+                <div class="stat-card" style="padding:0.5rem 1rem;">
+                  <div class="stat-value" style="font-size:1.2rem;" x-text="profile.following || 0"></div>
+                  <div class="stat-label" style="font-size:0.7rem;">Following</div>
+                </div>
+                <div class="stat-card" style="padding:0.5rem 1rem;">
+                  <div class="stat-value" style="font-size:1.2rem;" x-text="profile.activityCount || 0"></div>
+                  <div class="stat-label" style="font-size:0.7rem;">Activities</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab" :class="activeTab === 'activities' && 'active'"
+                  @click="activeTab = 'activities'">Activities</button>
+          <button class="tab" :class="activeTab === 'followers' && 'active'"
+                  @click="activeTab = 'followers'; loadFollowers()">Followers</button>
+          <button class="tab" :class="activeTab === 'inspector' && 'active'"
+                  @click="activeTab = 'inspector'; loadActivityPubJson()">ActivityPub Inspector</button>
+        </div>
+
+        <!-- Activities Tab -->
+        <template x-if="activeTab === 'activities'">
+          <div>
+            <template x-if="activities.length === 0">
+              <div class="card empty-state">
+                <p>No activities yet.</p>
+              </div>
+            </template>
+            <template x-for="a in activities" :key="a.id">
+              <div class="activity-card">
+                <div class="activity-header">
+                  <span class="badge badge-type" x-text="a.objectType || a.type"></span>
+                  <span style="color:var(--text-muted);font-size:0.8rem;" x-text="formatDate(a.publishedAt)"></span>
+                </div>
+                <div class="activity-meta">
+                  <span x-text="a.content || 'Activity'"></span>
+                </div>
+                <template x-if="a.summary">
+                  <div class="activity-meta">
+                    <template x-if="a.summary.distance">
+                      <span>📏 <span x-text="a.summary.distance"></span></span>
+                    </template>
+                    <template x-if="a.summary.duration">
+                      <span>⏱️ <span x-text="a.summary.duration"></span></span>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Followers Tab -->
+        <template x-if="activeTab === 'followers'">
+          <div class="card">
+            <template x-if="followers.length === 0">
+              <div class="empty-state"><p>No followers yet.</p></div>
+            </template>
+            <table class="table" x-show="followers.length > 0">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Instance</th>
+                  <th>Since</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="f in followers" :key="f.actorUrl">
+                  <tr>
+                    <td x-text="f.username || f.actorUrl.split('/').pop()"></td>
+                    <td>
+                      <span class="badge" :class="f.isLocal ? 'badge-local' : 'badge-remote'"
+                            x-text="f.isLocal ? '🏠 local' : '🌐 ' + f.instance"></span>
+                    </td>
+                    <td style="color:var(--text-muted);" x-text="f.since || '-'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+
+        <!-- Inspector Tab -->
+        <template x-if="activeTab === 'inspector'">
+          <div class="card">
+            <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">
+              This is the raw ActivityPub actor JSON that other servers see.
+            </p>
+            <div class="json-inspector">
+              <pre x-html="activityPubJson"></pre>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    function profileApp() {
+      return {
+        isLoggedIn: false,
+        currentUser: '',
+        loading: true,
+        profile: null,
+        activities: [],
+        followers: [],
+        activeTab: 'activities',
+        activityPubJson: '',
+
+        async init() {
+          this.isLoggedIn = OpenPaceApi.isAuthenticated();
+          this.currentUser = OpenPaceApi.getUsername() || '';
+          const params = new URLSearchParams(window.location.search);
+          const username = params.get('user') || this.currentUser;
+          if (username) {
+            await this.loadProfile(username);
+          } else {
+            this.loading = false;
+          }
+        },
+
+        async loadProfile(username) {
+          this.loading = true;
+          try {
+            this.profile = await OpenPaceApi.getProfile(username);
+            // Load activities from feed filtered by this user
+            const feed = await OpenPaceApi.getFeed();
+            this.activities = feed.filter(a => a.author?.username === username);
+          } catch (e) {
+            this.profile = null;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async loadFollowers() {
+          if (this.followers.length > 0) return;
+          const params = new URLSearchParams(window.location.search);
+          const username = params.get('user') || this.currentUser;
+          try {
+            this.followers = await OpenPaceApi.getFollowers(username);
+          } catch (e) {
+            console.warn('Failed to load followers:', e);
+          }
+        },
+
+        async loadActivityPubJson() {
+          if (this.activityPubJson) return;
+          const params = new URLSearchParams(window.location.search);
+          const username = params.get('user') || this.currentUser;
+          try {
+            const response = await fetch(`/users/${username}`, {
+              headers: { 'Accept': 'application/activity+json' }
+            });
+            const json = await response.json();
+            this.activityPubJson = Federation.formatActivityPubJson(json);
+          } catch (e) {
+            this.activityPubJson = '<span style="color:var(--accent-red);">Failed to load ActivityPub JSON</span>';
+          }
+        },
+
+        formatDate(dateStr) {
+          if (!dateStr) return '';
+          try {
+            return new Date(dateStr).toLocaleDateString();
+          } catch {
+            return dateStr;
+          }
+        },
+
+        logout() {
+          OpenPaceApi.clearCredentials();
+          this.isLoggedIn = false;
+          this.currentUser = '';
+        }
+      };
+    }
+  </script>
+</body>
+</html>

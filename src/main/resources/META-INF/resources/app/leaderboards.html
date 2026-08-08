@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboards — Open Pace</title>
+  <link rel="stylesheet" href="/app/css/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/app/js/api.js"></script>
+  <script src="/app/js/federation.js"></script>
+</head>
+<body x-data="leaderboardsApp()" x-init="init()">
+
+  <nav class="nav">
+    <div class="nav-brand">🏃 Open<span>Pace</span></div>
+    <div class="nav-links">
+      <a href="/app/">Universe</a>
+      <a href="/app/discover.html">Discover</a>
+      <a href="/app/feed.html">Feed</a>
+      <a href="/app/new.html">New Activity</a>
+      <a href="/app/leaderboards.html" class="active">Leaderboards</a>
+    </div>
+    <div class="nav-auth">
+      <template x-if="isLoggedIn">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <a :href="'/app/profile.html?user=' + username" x-text="username" style="color:var(--accent-green);"></a>
+          <button @click="logout()" class="btn btn-secondary btn-sm">Logout</button>
+        </div>
+      </template>
+      <template x-if="!isLoggedIn">
+        <a href="/app/discover.html" class="btn btn-primary btn-sm">Login</a>
+      </template>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>🏆 Leaderboards</h1>
+      <p>Segment rankings across the federation.</p>
+    </div>
+
+    <!-- Segment Selector -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="form-group" style="margin:0;">
+        <label>Segment</label>
+        <select class="form-input" x-model="selectedSegment" @change="loadLeaderboard()">
+          <option value="">Overall Leaderboard</option>
+          <template x-for="seg in segments" :key="seg.id">
+            <option :value="seg.id" x-text="seg.name"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <template x-if="loading">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading rankings...</p>
+      </div>
+    </template>
+
+    <!-- Rankings Table -->
+    <template x-if="!loading">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" x-text="selectedSegment ? 'Segment Rankings' : 'Overall Leaderboard'"></span>
+        </div>
+
+        <template x-if="rankings.length === 0">
+          <div class="empty-state">
+            <div class="icon">🏆</div>
+            <p>No rankings yet. Complete some segments!</p>
+          </div>
+        </template>
+
+        <table class="table" x-show="rankings.length > 0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Athlete</th>
+              <th>Source</th>
+              <th x-text="selectedSegment ? 'Time' : 'Segments'"></th>
+              <template x-if="!selectedSegment">
+                <th>Total Time</th>
+              </template>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(entry, idx) in rankings" :key="idx">
+              <tr>
+                <td>
+                  <template x-if="idx === 0"><span style="color:var(--accent-yellow);">🥇</span></template>
+                  <template x-if="idx === 1"><span style="color:var(--text-secondary);">🥈</span></template>
+                  <template x-if="idx === 2"><span style="color:#cd7f32;">🥉</span></template>
+                  <template x-if="idx > 2"><span x-text="idx + 1"></span></template>
+                </td>
+                <td>
+                  <a :href="'/app/profile.html?user=' + entry.username" x-text="entry.username"></a>
+                </td>
+                <td>
+                  <span class="badge" :class="entry.isLocal ? 'badge-local' : 'badge-remote'"
+                        x-text="entry.isLocal ? '🏠 local' : '🌐 ' + (entry.instance || 'remote')"></span>
+                </td>
+                <td x-text="entry.time || entry.segmentCount || '-'"></td>
+                <template x-if="!selectedSegment">
+                  <td x-text="entry.totalTime || '-'"></td>
+                </template>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- How It Works -->
+    <div class="card" style="margin-top:1.5rem;">
+      <div class="card-header">
+        <span class="card-title">How Leaderboards Work</span>
+      </div>
+      <div style="color:var(--text-secondary);font-size:0.9rem;">
+        <p>Leaderboards rank athletes by segment completion times. Segments are defined stretches of road or trail that athletes compete on.</p>
+        <div class="federation-flow" style="margin-top:1rem;">
+          <div class="flow-step"><div class="flow-icon">🏃</div><div class="flow-label">Complete Segment</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step"><div class="flow-icon">📊</div><div class="flow-label">Time Recorded</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step"><div class="flow-icon">🏆</div><div class="flow-label">Rank Updated</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step"><div class="flow-icon">🌐</div><div class="flow-label">Federated</div></div>
+        </div>
+        <p style="margin-top:0.75rem;">Rankings include athletes from connected instances across the fediverse.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function leaderboardsApp() {
+      return {
+        isLoggedIn: false,
+        username: '',
+        loading: true,
+        segments: [],
+        selectedSegment: '',
+        rankings: [],
+
+        async init() {
+          this.isLoggedIn = OpenPaceApi.isAuthenticated();
+          this.username = OpenPaceApi.getUsername() || '';
+          await this.loadData();
+        },
+
+        async loadData() {
+          this.loading = true;
+          try {
+            // Try to load segments
+            try {
+              this.segments = await OpenPaceApi.getSegments();
+            } catch {
+              this.segments = [];
+            }
+
+            await this.loadLeaderboard();
+          } catch (e) {
+            console.warn('Failed to load leaderboard data:', e);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async loadLeaderboard() {
+          this.loading = true;
+          try {
+            if (this.selectedSegment) {
+              this.rankings = await OpenPaceApi.getLeaderboard(this.selectedSegment);
+            } else {
+              this.rankings = await OpenPaceApi.getOverallLeaderboard();
+            }
+          } catch (e) {
+            // If endpoints don't exist yet, show empty state
+            this.rankings = [];
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        logout() {
+          OpenPaceApi.clearCredentials();
+          this.isLoggedIn = false;
+          this.username = '';
+        }
+      };
+    }
+  </script>
+</body>
+</html>

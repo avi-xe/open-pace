@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Pace — Federated Fitness</title>
+  <link rel="stylesheet" href="/app/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/app/js/api.js"></script>
+  <script src="/app/js/federation.js"></script>
+</head>
+<body x-data="universeApp()" x-init="init()">
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="nav-brand">🏃 Open<span>Pace</span></div>
+    <div class="nav-links">
+      <a href="/app/" class="active">Universe</a>
+      <a href="/app/discover.html">Discover</a>
+      <a href="/app/feed.html">Feed</a>
+      <a href="/app/new.html">New Activity</a>
+      <a href="/app/leaderboards.html">Leaderboards</a>
+    </div>
+    <div class="nav-auth">
+      <template x-if="!isLoggedIn">
+        <a href="/app/discover.html" class="btn btn-primary btn-sm">Login</a>
+      </template>
+      <template x-if="isLoggedIn">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <a :href="'/app/profile.html?user=' + username" x-text="username" style="color:var(--accent-green);"></a>
+          <button @click="logout()" class="btn btn-secondary btn-sm">Logout</button>
+        </div>
+      </template>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="page-header">
+      <h1>🌐 The Federated Fitness Universe</h1>
+      <p>Open Pace is part of the fediverse — your activities flow across instances.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid-4" style="margin-bottom:1.5rem;">
+      <div class="stat-card">
+        <div class="stat-value" x-text="stats.users">-</div>
+        <div class="stat-label">Athletes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" x-text="stats.activities">-</div>
+        <div class="stat-label">Activities</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" x-text="stats.segments">-</div>
+        <div class="stat-label">Segments</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" x-text="stats.instances">-</div>
+        <div class="stat-label">Instances</div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-header">
+        <span class="card-title">Connected Instances</span>
+        <span class="badge badge-local">🏠 Local</span>
+      </div>
+      <div id="universe-map" class="map-container"></div>
+    </div>
+
+    <!-- Recent Activities -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recent Activities</span>
+        <a href="/app/feed.html" class="btn btn-secondary btn-sm">View All →</a>
+      </div>
+      <template x-if="activities.length === 0">
+        <div class="empty-state">
+          <div class="icon">🏃</div>
+          <p>No activities yet. Be the first to post!</p>
+          <a href="/app/new.html" class="btn btn-primary" style="margin-top:1rem;">Create Activity</a>
+        </div>
+      </template>
+      <template x-for="activity in activities.slice(0, 5)" :key="activity.id">
+        <div class="activity-card">
+          <div class="activity-header">
+            <div class="activity-author">
+              <div class="activity-avatar" x-text="activity.author?.username?.[0]?.toUpperCase() || '?'"></div>
+              <div>
+                <strong x-text="activity.author?.username || 'Unknown'"></strong>
+                <span class="badge badge-local" style="margin-left:0.5rem;">🏠 local</span>
+              </div>
+            </div>
+            <span class="badge badge-type" x-text="activity.objectType || activity.type"></span>
+          </div>
+          <div class="activity-meta">
+            <span x-text="activity.content || 'No content'"></span>
+          </div>
+          <template x-if="activity.summary">
+            <div class="activity-meta">
+              <template x-if="activity.summary.distance">
+                <span>📏 <span x-text="activity.summary.distance"></span></span>
+              </template>
+              <template x-if="activity.summary.duration">
+                <span>⏱️ <span x-text="activity.summary.duration"></span></span>
+              </template>
+              <template x-if="activity.summary.pace">
+                <span>⚡ <span x-text="activity.summary.pace"></span></span>
+              </template>
+            </div>
+          </template>
+          <div class="activity-federation">
+            📡 Delivered via federation
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Call to Action -->
+    <div class="card" style="text-align:center; margin-top:1.5rem; padding:2rem;">
+      <h2 style="margin-bottom:0.5rem;">Ready to join the federation?</h2>
+      <p style="color:var(--text-secondary); margin-bottom:1rem;">
+        Create an account and start sharing your activities across the fediverse.
+      </p>
+      <div style="display:flex; gap:1rem; justify-content:center;">
+        <a href="/app/discover.html" class="btn btn-primary">Discover Athletes</a>
+        <a href="/app/new.html" class="btn btn-secondary">Create Activity</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function universeApp() {
+      return {
+        isLoggedIn: false,
+        username: '',
+        stats: { users: 0, activities: 0, segments: 0, instances: 1 },
+        activities: [],
+        instances: [],
+        map: null,
+
+        async init() {
+          this.isLoggedIn = OpenPaceApi.isAuthenticated();
+          this.username = OpenPaceApi.getUsername() || '';
+          await this.loadData();
+          this.initMap();
+        },
+
+        async loadData() {
+          try {
+            const [instances, feed] = await Promise.all([
+              OpenPaceApi.getInstances(),
+              OpenPaceApi.getFeed()
+            ]);
+            this.instances = instances;
+            this.activities = feed;
+            this.stats.instances = instances.length;
+            this.stats.activities = feed.length;
+
+            // Count unique local users from activities
+            const users = new Set(feed.map(a => a.author?.username).filter(Boolean));
+            this.stats.users = users.size || 1;
+          } catch (e) {
+            console.warn('Failed to load data:', e);
+          }
+        },
+
+        initMap() {
+          this.$nextTick(() => {
+            const mapEl = document.getElementById('universe-map');
+            if (!mapEl) return;
+
+            this.map = L.map(mapEl).setView([40.7128, -74.006], 3);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '© OpenStreetMap contributors',
+              maxZoom: 18
+            }).addTo(this.map);
+
+            // Add local instance marker
+            L.circleMarker([40.7128, -74.006], {
+              radius: 10, fillColor: '#06d6a0', color: '#06d6a0', fillOpacity: 0.7
+            }).addTo(this.map).bindPopup('<strong>🏠 This Instance</strong><br>Local athletes');
+
+            // Add remote instance markers
+            this.instances.filter(i => !i.isLocal).forEach(inst => {
+              const lat = 30 + Math.random() * 30;
+              const lon = -100 + Math.random() * 200;
+              L.circleMarker([lat, lon], {
+                radius: 8, fillColor: '#4361ee', color: '#4361ee', fillOpacity: 0.7
+              }).addTo(this.map).bindPopup(`<strong>🌐 ${inst.domain}</strong>`);
+            });
+          });
+        },
+
+        logout() {
+          OpenPaceApi.clearCredentials();
+          this.isLoggedIn = false;
+          this.username = '';
+        }
+      };
+    }
+  </script>
+</body>
+</html>
