@@ -18,6 +18,7 @@ package org.openpace.federation;
 import org.openpace.actor.Actor;
 import org.openpace.activity.Activity;
 import org.openpace.activity.ActivityService;
+import org.openpace.activity.Visibility;
 import org.openpace.activity.models.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 import org.openpace.social.Follower;
@@ -118,7 +119,7 @@ public class OutboxResource {
 
             // Deliver to followers OUTSIDE the transaction boundary
             // Network failures won't roll back the local activity
-            if ("Create".equals(type) && "public".equals(dbActivity.visibility)) {
+            if ("Create".equals(type) && Visibility.PUBLIC.equals(dbActivity.visibility)) {
                 deliverToFollowers(dbActivity);
             }
 
@@ -168,7 +169,7 @@ public class OutboxResource {
         }
 
         // Get activities for this actor (exclude private)
-        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != 'private' ORDER BY publishedAt DESC", actor).list();
+        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != ?2 ORDER BY publishedAt DESC", actor, Visibility.PRIVATE).list();
         List<ActivityPubModels.Activity> activityModels = activities.stream()
             .map(a -> activityDomainMapper.toActivity(a))
             .toList();
@@ -195,7 +196,7 @@ public class OutboxResource {
         }
 
         // Get activities for this actor (exclude private)
-        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != 'private' ORDER BY publishedAt DESC", actor).list();
+        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != ?2 ORDER BY publishedAt DESC", actor, Visibility.PRIVATE).list();
         List<ActivityPubModels.Activity> activityModels = activities.stream()
             .map(a -> activityDomainMapper.toActivity(a))
             .toList();

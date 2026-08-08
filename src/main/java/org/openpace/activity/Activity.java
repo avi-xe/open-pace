@@ -21,6 +21,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -94,8 +96,9 @@ public class Activity extends PanacheEntityBase {
      * - unlisted: visible on profile, not in public timelines, not federated
      * - private: only visible to the owner
      */
+    @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false, length = 20)
-    public String visibility = "public";
+    public Visibility visibility = Visibility.PUBLIC;
 
     /**
      * Simplified GPX track stored as PostGIS LineString.

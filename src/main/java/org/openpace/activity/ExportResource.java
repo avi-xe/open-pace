@@ -56,7 +56,7 @@ public class ExportResource {
                 .build();
         }
 
-        if ("private".equals(activity.visibility)) {
+        if (Visibility.PRIVATE.equals(activity.visibility)) {
             return Response.status(Response.Status.FORBIDDEN)
                 .entity(new ErrorResponse("PRIVATE_ACTIVITY", "Cannot export private activity"))
                 .build();
@@ -104,7 +104,7 @@ public class ExportResource {
                 .build();
         }
 
-        if ("private".equals(activity.visibility)) {
+        if (Visibility.PRIVATE.equals(activity.visibility)) {
             return Response.status(Response.Status.FORBIDDEN)
                 .entity(new ErrorResponse("PRIVATE_ACTIVITY", "Cannot export private activity"))
                 .build();

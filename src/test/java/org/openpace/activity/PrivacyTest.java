@@ -27,6 +27,7 @@ import jakarta.transaction.UserTransaction;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.openpace.actor.Actor;
+import org.openpace.activity.Visibility;
 
 @QuarkusTest
 class PrivacyTest {
@@ -59,7 +60,7 @@ class PrivacyTest {
         JsonNode json = objectMapper.readTree(activityJson);
         Activity activity = activityService.createActivity(actor, json);
 
-        assertEquals("public", activity.visibility);
+        assertEquals(Visibility.PUBLIC, activity.visibility);
     }
 
     @Test
@@ -81,11 +82,11 @@ class PrivacyTest {
         JsonNode json = objectMapper.readTree(activityJson);
         Activity activity = activityService.createActivity(actor, json);
 
-        activity.visibility = "unlisted";
+        activity.visibility = Visibility.UNLISTED;
         activity.persistAndFlush();
 
         Activity retrieved = Activity.findByActivityId(activity.activityId);
-        assertEquals("unlisted", retrieved.visibility);
+        assertEquals(Visibility.UNLISTED, retrieved.visibility);
     }
 
     @Test
@@ -107,11 +108,11 @@ class PrivacyTest {
         JsonNode json = objectMapper.readTree(activityJson);
         Activity activity = activityService.createActivity(actor, json);
 
-        activity.visibility = "private";
+        activity.visibility = Visibility.PRIVATE;
         activity.persistAndFlush();
 
         Activity retrieved = Activity.findByActivityId(activity.activityId);
-        assertEquals("private", retrieved.visibility);
+        assertEquals(Visibility.PRIVATE, retrieved.visibility);
     }
 
     @Test
@@ -143,7 +144,7 @@ class PrivacyTest {
             }
             """;
         Activity privateActivity = activityService.createActivity(actor, objectMapper.readTree(privateJson));
-        privateActivity.visibility = "private";
+        privateActivity.visibility = Visibility.PRIVATE;
         privateActivity.persist();
         tx.commit();
 
