@@ -48,6 +48,9 @@ public class Actor extends PanacheEntityBase {
     @Column(length = 255)
     public String name;
 
+    @Column(name = "user_id")
+    public Long userId;
+
     @Column(name = "created_at")
     public LocalDateTime createdAt;
 

@@ -76,9 +76,19 @@ public class OutboxResource {
     @Consumes(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
     @Produces(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
     @Transactional
+    @jakarta.annotation.security.RolesAllowed("user")
     public Response postOutbox(
             @PathParam("username") String username,
+            @Context io.quarkus.security.identity.SecurityIdentity securityIdentity,
             String body) {
+        // Verify the authenticated user owns this outbox
+        String authenticatedUser = securityIdentity.getPrincipal().getName();
+        if (!authenticatedUser.equals(username)) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity(new ErrorResponse("FORBIDDEN", "Cannot post to another user's outbox"))
+                .build();
+        }
+
         Actor actor = Actor.findByUsername(username);
         if (actor == null) {
             return Response.status(Response.Status.NOT_FOUND)
