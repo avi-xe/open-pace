@@ -49,9 +49,9 @@ This document captures potential features, enhancements, and future sprints for 
 | Notifications & digests | LOW | Sprint 20 |
 | Federation enhancements | LOW | Sprint 21 |
 
-## Planned Sprints (8.5-10)
+## Planned Sprints (8-10)
 
-### Sprint 8.5: Federation Protocol & HTTP Signatures ✅
+### Sprint 8: Activity Analytics & Personal Records ✅
 **Status**: Planned  
 **Priority**: HIGH  
 **Phase**: Core Sports Platform
@@ -70,12 +70,32 @@ This document captures potential features, enhancements, and future sprints for 
 - Chart generation (Recharts in React)
 - Database indexes for performance queries
 
-### Sprint 9: Social Interactions & Feed ✅
+### Sprint 8.5: Federation Protocol & HTTP Signatures ✅
 **Status**: Planned  
 **Priority**: HIGH  
-**Phase**: Core Sports Platform
+**Phase**: Core Federation
 
 **Features**:
+- Add `tomitribe-http-signatures` library
+- Implement HTTP Signature signing (outbound)
+- Implement HTTP Signature verification (inbound)
+- RSA key pair generation for actors
+- Remote actor public key caching
+- Enhance ActivityPubModels with missing fields
+
+**Technical**:
+- RSA key management
+- HTTP Signature headers
+- Public key caching
+- Mastodon interop testing
+
+### Sprint 9: OAM/OIDC & Social Interactions ✅
+**Status**: Planned  
+**Priority**: HIGH  
+**Phase**: Core Federation
+
+**Features**:
+- OAM/OIDC decentralized authentication
 - Activity feed (timeline of followed users)
 - Comments on activities (ActivityPub replies)
 - Kudos/Likes (ActivityPub Like activities)
@@ -84,6 +104,7 @@ This document captures potential features, enhancements, and future sprints for 
 - Notifications for interactions
 
 **Technical**:
+- OIDC client implementation
 - ActivityPub Create/Like/Announce activities
 - Feed aggregation and ranking
 - Real-time notifications (WebSocket or SSE)
