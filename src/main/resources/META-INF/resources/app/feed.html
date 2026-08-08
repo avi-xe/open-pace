@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feed — Open Pace</title>
+  <link rel="stylesheet" href="/app/css/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/app/js/api.js"></script>
+  <script src="/app/js/federation.js"></script>
+</head>
+<body x-data="feedApp()" x-init="init()">
+
+  <nav class="nav">
+    <div class="nav-brand">🏃 Open<span>Pace</span></div>
+    <div class="nav-links">
+      <a href="/app/">Universe</a>
+      <a href="/app/discover.html">Discover</a>
+      <a href="/app/feed.html" class="active">Feed</a>
+      <a href="/app/new.html">New Activity</a>
+      <a href="/app/leaderboards.html">Leaderboards</a>
+    </div>
+    <div class="nav-auth">
+      <template x-if="isLoggedIn">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <a :href="'/app/profile.html?user=' + username" x-text="username" style="color:var(--accent-green);"></a>
+          <button @click="logout()" class="btn btn-secondary btn-sm">Logout</button>
+        </div>
+      </template>
+      <template x-if="!isLoggedIn">
+        <a href="/app/discover.html" class="btn btn-primary btn-sm">Login</a>
+      </template>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>📰 Activity Feed</h1>
+      <p>Activities from athletes across the fediverse.</p>
+    </div>
+
+    <!-- Loading -->
+    <template x-if="loading">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading feed...</p>
+      </div>
+    </template>
+
+    <!-- Empty State -->
+    <template x-if="!loading && activities.length === 0">
+      <div class="card empty-state">
+        <div class="icon">🏃</div>
+        <p>No activities yet.</p>
+        <a href="/app/new.html" class="btn btn-primary" style="margin-top:1rem;">Create First Activity</a>
+      </div>
+    </template>
+
+    <!-- Activity Cards -->
+    <template x-for="activity in activities" :key="activity.id">
+      <div class="activity-card">
+        <div class="activity-header">
+          <div class="activity-author">
+            <div class="activity-avatar" x-text="(activity.author?.username || '?')[0]?.toUpperCase()"></div>
+            <div>
+              <a :href="'/app/profile.html?user=' + activity.author?.username" x-text="activity.author?.username"></a>
+              <span class="badge" :class="activity.isLocal ? 'badge-local' : 'badge-remote'"
+                    x-text="activity.isLocal ? '🏠 local' : '🌐 ' + (activity.instance || 'remote')"
+                    style="margin-left:0.5rem;"></span>
+            </div>
+          </div>
+          <span class="badge badge-type" x-text="activity.objectType || activity.type"></span>
+        </div>
+
+        <div class="activity-meta" style="margin-bottom:0.5rem;">
+          <span x-text="activity.content || 'Activity'"></span>
+        </div>
+
+        <!-- Summary Stats -->
+        <template x-if="activity.summary">
+          <div class="activity-meta">
+            <template x-if="activity.summary.distance">
+              <span>📏 <span x-text="activity.summary.distance"></span></span>
+            </template>
+            <template x-if="activity.summary.duration">
+              <span>⏱️ <span x-text="activity.summary.duration"></span></span>
+            </template>
+            <template x-if="activity.summary.pace">
+              <span>⚡ <span x-text="activity.summary.pace"></span></span>
+            </template>
+            <template x-if="activity.summary.elevation">
+              <span>⛰️ <span x-text="activity.summary.elevation"></span></span>
+            </template>
+          </div>
+        </template>
+
+        <!-- Map Thumbnail -->
+        <template x-if="activity.mapUrl">
+          <img :src="activity.mapUrl" class="activity-map" alt="Activity map" loading="lazy"
+               onerror="this.style.display='none'">
+        </template>
+
+        <!-- Footer -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;">
+          <div class="activity-federation">
+            <template x-if="activity.isLocal">
+              <span>📡 Delivered via federation</span>
+            </template>
+            <template x-if="!activity.isLocal">
+              <span>📡 Received via federation</span>
+            </template>
+          </div>
+          <div style="display:flex;gap:0.5rem;">
+            <span style="color:var(--text-muted);font-size:0.8rem;" x-text="formatDate(activity.publishedAt)"></span>
+            <button @click="inspectActivity(activity)" class="btn btn-secondary btn-sm">JSON</button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ActivityPub Inspector Modal -->
+  <template x-if="inspectedActivity">
+    <div class="modal-overlay" @click.self="inspectedActivity=null">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>ActivityPub Inspector</h3>
+          <button class="modal-close" @click="inspectedActivity=null">&times;</button>
+        </div>
+        <div class="json-inspector">
+          <pre x-html="inspectedJson"></pre>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    function feedApp() {
+      return {
+        isLoggedIn: false,
+        username: '',
+        loading: true,
+        activities: [],
+        inspectedActivity: null,
+        inspectedJson: '',
+
+        async init() {
+          this.isLoggedIn = OpenPaceApi.isAuthenticated();
+          this.username = OpenPaceApi.getUsername() || '';
+          await this.loadFeed();
+        },
+
+        async loadFeed() {
+          this.loading = true;
+          try {
+            this.activities = await OpenPaceApi.getFeed();
+          } catch (e) {
+            console.warn('Failed to load feed:', e);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async inspectActivity(activity) {
+          try {
+            const json = await OpenPaceApi.getActivityPubJson(activity.id);
+            this.inspectedActivity = activity;
+            this.inspectedJson = Federation.formatActivityPubJson(json);
+          } catch (e) {
+            alert('Could not fetch ActivityPub JSON');
+          }
+        },
+
+        formatDate(dateStr) {
+          if (!dateStr) return '';
+          try {
+            const d = new Date(dateStr);
+            const now = new Date();
+            const diff = (now - d) / 1000;
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            return d.toLocaleDateString();
+          } catch {
+            return dateStr;
+          }
+        },
+
+        logout() {
+          OpenPaceApi.clearCredentials();
+          this.isLoggedIn = false;
+          this.username = '';
+        }
+      };
+    }
+  </script>
+</body>
+</html>
