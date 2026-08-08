@@ -104,8 +104,8 @@ public class OutboxResource {
 
             LOG.info("Created activity: " + dbActivity.activityId);
 
-            // For Create activities, deliver to followers
-            if ("Create".equals(type)) {
+            // For Create activities, deliver to followers (only if public)
+            if ("Create".equals(type) && "public".equals(dbActivity.visibility)) {
                 ActivityPubModels.Activity activityModel = activityPubService.toActivity(dbActivity);
                 String activityJsonStr = objectMapper.writeValueAsString(activityModel);
 
@@ -142,8 +142,8 @@ public class OutboxResource {
                 .build();
         }
 
-        // Get activities for this actor
-        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 ORDER BY publishedAt DESC", actor).list();
+        // Get activities for this actor (exclude private)
+        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != 'private' ORDER BY publishedAt DESC", actor).list();
         List<ActivityPubModels.Activity> activityModels = activities.stream()
             .map(a -> activityPubService.toActivity(a))
             .toList();
@@ -169,8 +169,8 @@ public class OutboxResource {
                 .build();
         }
 
-        // Get activities for this actor
-        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 ORDER BY publishedAt DESC", actor).list();
+        // Get activities for this actor (exclude private)
+        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != 'private' ORDER BY publishedAt DESC", actor).list();
         List<ActivityPubModels.Activity> activityModels = activities.stream()
             .map(a -> activityPubService.toActivity(a))
             .toList();

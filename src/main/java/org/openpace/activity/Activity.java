@@ -86,6 +86,15 @@ public class Activity extends PanacheEntityBase {
     @JdbcTypeCode(SqlTypes.JSON)
     public JsonNode trackData;
 
+    /**
+     * Visibility level: public, unlisted, or private.
+     * - public: visible everywhere, federated to followers
+     * - unlisted: visible on profile, not in public timelines, not federated
+     * - private: only visible to the owner
+     */
+    @Column(name = "visibility", nullable = false, length = 20)
+    public String visibility = "public";
+
     @Column(name = "created_at")
     public LocalDateTime createdAt;
 
