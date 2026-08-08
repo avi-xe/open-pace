@@ -73,8 +73,8 @@ public class OutboxResource {
      * @see <a href="https://www.w3.org/TR/activitypub/#client-to-server">C2S Specification</a>
      */
     @POST
-    @Consumes(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
-    @Produces(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
+    @Consumes({ActivityPubModels.APPLICATION_ACTIVITY_JSON, jakarta.ws.rs.core.MediaType.APPLICATION_JSON})
+    @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
     @Transactional
     @jakarta.annotation.security.RolesAllowed("user")
     public Response postOutbox(
