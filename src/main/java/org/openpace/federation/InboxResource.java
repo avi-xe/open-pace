@@ -16,7 +16,6 @@
 package org.openpace.federation;
 
 import org.openpace.actor.Actor;
-import org.openpace.activity.ActivityPubService;
 import org.openpace.activity.models.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 
@@ -46,7 +45,10 @@ public class InboxResource {
     private static final Logger LOG = Logger.getLogger(InboxResource.class.getName());
 
     @Inject
-    ActivityPubService activityPubService;
+    InboxActivityProcessor inboxActivityProcessor;
+
+    @Inject
+    ActivityPubModelBuilder modelBuilder;
 
     @Inject
     ObjectMapper objectMapper;
@@ -69,7 +71,7 @@ public class InboxResource {
 
         try {
             JsonNode activityJson = objectMapper.readTree(body);
-            activityPubService.processActivity(activityJson);
+            inboxActivityProcessor.processActivity(activityJson);
             return Response.accepted().build();
         } catch (Exception e) {
             LOG.warning("Failed to process inbox activity: " + e.getMessage());
@@ -94,7 +96,7 @@ public class InboxResource {
         ActivityPubModels.OrderedCollection inbox = new ActivityPubModels.OrderedCollection();
         inbox.context = "https://www.w3.org/ns/activitystreams";
         inbox.type = "OrderedCollection";
-        inbox.id = actor.getInboxUrl(activityPubService.getBaseUrl());
+        inbox.id = actor.getInboxUrl(modelBuilder.getBaseUrl());
         inbox.totalItems = "0";
         inbox.first = null;
 

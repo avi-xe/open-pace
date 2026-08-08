@@ -16,7 +16,7 @@
 package org.openpace.webfinger;
 
 import org.openpace.actor.Actor;
-import org.openpace.activity.ActivityPubService;
+import org.openpace.federation.ActivityPubModelBuilder;
 import org.openpace.activity.models.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 
@@ -42,7 +42,7 @@ public class WebFingerResource {
     private static final Logger LOG = Logger.getLogger(WebFingerResource.class.getName());
 
     @Inject
-    ActivityPubService activityPubService;
+    ActivityPubModelBuilder modelBuilder;
 
     @GET
     @Path("/webfinger")
@@ -81,7 +81,7 @@ public class WebFingerResource {
                 .build();
         }
 
-        String baseUrl = activityPubService.getBaseUrl();
+        String baseUrl = modelBuilder.getBaseUrl();
         String actorId = actor.getActorId(baseUrl);
 
         // Build WebFinger response

@@ -61,19 +61,15 @@ public class FederationDeliveryService {
     public void deliver(String targetInbox, String activityJson) {
         LOG.info("Delivering activity to: " + targetInbox);
 
-        HttpRequest<Buffer> request = webClient
-            .request(HttpMethod.POST, targetInbox)
-            .putHeader("Content-Type", "application/activity+json")
-            .putHeader("Accept", "application/activity+json");
+        try {
+            io.vertx.core.json.JsonObject jsonBody = new io.vertx.core.json.JsonObject(activityJson);
 
-        request.sendJsonObject(
-            io.vertx.core.json.JsonObject.mapFrom(
-                new com.fasterxml.jackson.databind.ObjectMapper().convertValue(
-                    com.fasterxml.jackson.databind.ObjectMapper.class,
-                    com.fasterxml.jackson.databind.node.ObjectNode.class
-                )
-            ),
-            response -> {
+            HttpRequest<Buffer> request = webClient
+                .request(HttpMethod.POST, targetInbox)
+                .putHeader("Content-Type", "application/activity+json")
+                .putHeader("Accept", "application/activity+json");
+
+            request.sendJsonObject(jsonBody, response -> {
                 if (response.succeeded()) {
                     HttpResponse<Buffer> result = response.result();
                     if (result.statusCode() >= 200 && result.statusCode() < 300) {
@@ -84,8 +80,10 @@ public class FederationDeliveryService {
                 } else {
                     LOG.warning("Delivery error to " + targetInbox + ": " + response.cause().getMessage());
                 }
-            }
-        );
+            });
+        } catch (Exception e) {
+            LOG.warning("Failed to parse activity JSON for delivery: " + e.getMessage());
+        }
     }
 
     /**

@@ -16,6 +16,7 @@
 package org.openpace.activity;
 
 import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.federation.ActivityDomainMapper;
 import org.openpace.shared.ErrorResponse;
 
 import jakarta.inject.Inject;
@@ -37,7 +38,7 @@ public class ActivityResource {
     private static final Logger LOG = Logger.getLogger(ActivityResource.class.getName());
 
     @Inject
-    ActivityPubService activityPubService;
+    ActivityDomainMapper activityDomainMapper;
 
     /**
      * GET activity — returns a single activity by its ActivityPub ID.
@@ -54,7 +55,7 @@ public class ActivityResource {
         }
 
         LOG.info("Returning activity: " + activityId);
-        ActivityPubModels.Activity model = activityPubService.toActivity(activity);
+        ActivityPubModels.Activity model = activityDomainMapper.toActivity(activity);
         return Response.ok(model).build();
     }
 }

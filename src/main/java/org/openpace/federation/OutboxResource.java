@@ -17,7 +17,6 @@ package org.openpace.federation;
 
 import org.openpace.actor.Actor;
 import org.openpace.activity.Activity;
-import org.openpace.activity.ActivityPubService;
 import org.openpace.activity.ActivityService;
 import org.openpace.activity.models.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
@@ -53,7 +52,10 @@ public class OutboxResource {
     private static final Logger LOG = Logger.getLogger(OutboxResource.class.getName());
 
     @Inject
-    ActivityPubService activityPubService;
+    ActivityDomainMapper activityDomainMapper;
+
+    @Inject
+    ActivityPubModelBuilder modelBuilder;
 
     @Inject
     ActivityService activityService;
@@ -75,7 +77,6 @@ public class OutboxResource {
     @POST
     @Consumes({ActivityPubModels.APPLICATION_ACTIVITY_JSON, jakarta.ws.rs.core.MediaType.APPLICATION_JSON})
     @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-    @Transactional
     @jakarta.annotation.security.RolesAllowed("user")
     public Response postOutbox(
             @PathParam("username") String username,
@@ -110,19 +111,15 @@ public class OutboxResource {
             }
 
             // Use ActivityService to create activity (handles JSONB storage for custom types)
+            // ActivityService.createActivity() has its own @Transactional
             Activity dbActivity = activityService.createActivity(actor, activityJson);
 
             LOG.info("Created activity: " + dbActivity.activityId);
 
-            // For Create activities, deliver to followers (only if public)
+            // Deliver to followers OUTSIDE the transaction boundary
+            // Network failures won't roll back the local activity
             if ("Create".equals(type) && "public".equals(dbActivity.visibility)) {
-                ActivityPubModels.Activity activityModel = activityPubService.toActivity(dbActivity);
-                String activityJsonStr = objectMapper.writeValueAsString(activityModel);
-
-                List<Follower> followers = Follower.findByActor(actor);
-                for (Follower follower : followers) {
-                    federationDeliveryService.deliver(follower.followerInbox, activityJsonStr);
-                }
+                deliverToFollowers(dbActivity);
             }
 
             // Return 201 Created with Location header
@@ -136,6 +133,24 @@ public class OutboxResource {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("INVALID_ACTIVITY", e.getMessage()))
                 .build();
+        }
+    }
+
+    /**
+     * Deliver activity to followers' inboxes (outside transaction boundary).
+     */
+    private void deliverToFollowers(Activity dbActivity) {
+        try {
+            ActivityPubModels.Activity activityModel = activityDomainMapper.toActivity(dbActivity);
+            String activityJsonStr = objectMapper.writeValueAsString(activityModel);
+
+            List<Follower> followers = Follower.findByActor(dbActivity.actor);
+            for (Follower follower : followers) {
+                federationDeliveryService.deliver(follower.followerInbox, activityJsonStr);
+            }
+        } catch (Exception e) {
+            LOG.warning("Failed to deliver activity to followers: " + e.getMessage());
+            // Delivery failure doesn't affect the local activity creation
         }
     }
 
@@ -155,11 +170,11 @@ public class OutboxResource {
         // Get activities for this actor (exclude private)
         List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != 'private' ORDER BY publishedAt DESC", actor).list();
         List<ActivityPubModels.Activity> activityModels = activities.stream()
-            .map(a -> activityPubService.toActivity(a))
+            .map(a -> activityDomainMapper.toActivity(a))
             .toList();
 
         // Build collection with items embedded
-        ActivityPubModels.OrderedCollection outbox = activityPubService.buildOutbox(actor);
+        ActivityPubModels.OrderedCollection outbox = modelBuilder.buildOutbox(actor);
         outbox.orderedItems = activityModels.stream().map(a -> a.id).toList();
 
         return Response.ok(outbox).build();
@@ -182,10 +197,10 @@ public class OutboxResource {
         // Get activities for this actor (exclude private)
         List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 AND visibility != 'private' ORDER BY publishedAt DESC", actor).list();
         List<ActivityPubModels.Activity> activityModels = activities.stream()
-            .map(a -> activityPubService.toActivity(a))
+            .map(a -> activityDomainMapper.toActivity(a))
             .toList();
 
-        ActivityPubModels.OrderedCollectionPage page = activityPubService.buildOutboxPage(actor, activityModels);
+        ActivityPubModels.OrderedCollectionPage page = modelBuilder.buildOutboxPage(actor, activityModels);
         return Response.ok(page).build();
     }
 

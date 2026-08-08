@@ -21,8 +21,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import org.openpace.actor.Actor;
 
 /**
@@ -50,10 +52,11 @@ public class ActivityService {
      * @param activityJson the ActivityPub activity JSON
      * @return the persisted activity entity
      */
+    @Transactional
     public Activity createActivity(Actor actor, JsonNode activityJson) {
         String type = activityJson.has("type") ? activityJson.get("type").asText() : "Create";
         String baseUrl = actor.getActorId("").replace("/users/" + actor.username, "");
-        String activityId = actor.getActorId(baseUrl) + "/activities/" + System.currentTimeMillis();
+        String activityId = actor.getActorId(baseUrl) + "/activities/" + UUID.randomUUID();
 
         Activity activity = new Activity();
         activity.actor = actor;

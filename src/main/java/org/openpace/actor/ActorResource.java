@@ -15,7 +15,7 @@
  */
 package org.openpace.actor;
 
-import org.openpace.activity.ActivityPubService;
+import org.openpace.federation.ActivityPubModelBuilder;
 import org.openpace.activity.models.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 
@@ -39,7 +39,7 @@ public class ActorResource {
     private static final Logger LOG = Logger.getLogger(ActorResource.class.getName());
 
     @Inject
-    ActivityPubService activityPubService;
+    ActivityPubModelBuilder modelBuilder;
 
     @GET
     @Produces(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
@@ -52,7 +52,7 @@ public class ActorResource {
         }
 
         LOG.info("Returning actor profile for: " + username);
-        ActivityPubModels.Actor model = activityPubService.buildActor(actor);
+        ActivityPubModels.Actor model = modelBuilder.buildActor(actor);
         return Response.ok(model).build();
     }
 }

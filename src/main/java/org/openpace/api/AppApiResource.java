@@ -42,7 +42,8 @@ import java.util.Set;
 import java.util.logging.Logger;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.openpace.activity.Activity;
-import org.openpace.activity.ActivityPubService;
+import org.openpace.federation.ActivityPubModelBuilder;
+import org.openpace.federation.ActivityDomainMapper;
 import org.openpace.actor.Actor;
 import org.openpace.shared.ErrorResponse;
 import org.openpace.social.Follower;
@@ -65,7 +66,10 @@ public class AppApiResource {
     ObjectMapper objectMapper;
 
     @Inject
-    ActivityPubService activityPubService;
+    ActivityPubModelBuilder modelBuilder;
+
+    @Inject
+    ActivityDomainMapper activityDomainMapper;
 
     @ConfigProperty(name = "openpace.federation.webfinger.mode", defaultValue = "remote")
     String webfingerMode;
