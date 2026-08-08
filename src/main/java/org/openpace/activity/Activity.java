@@ -72,6 +72,20 @@ public class Activity extends PanacheEntityBase {
     @JdbcTypeCode(SqlTypes.JSON)
     public JsonNode objectJson;
 
+    /**
+     * Raw GPX XML data, stored for re-export and re-parsing.
+     */
+    @Column(name = "gpx_data", columnDefinition = "TEXT")
+    public String gpxData;
+
+    /**
+     * Parsed track data as JSONB.
+     * Structure: { "points": [{lat, lon, ele, time, speed}], "summary": {...} }
+     */
+    @Column(name = "track_data", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    public JsonNode trackData;
+
     @Column(name = "created_at")
     public LocalDateTime createdAt;
 

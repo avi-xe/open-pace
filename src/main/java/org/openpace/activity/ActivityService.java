@@ -17,10 +17,12 @@ package org.openpace.activity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.openpace.actor.Actor;
 
 /**
@@ -37,6 +39,9 @@ public class ActivityService {
 
     @Inject
     ObjectMapper objectMapper;
+
+    @Inject
+    GpxService gpxService;
 
     /**
      * Create a new activity from an ActivityPub JSON payload.
@@ -70,6 +75,28 @@ public class ActivityService {
                 } else {
                     // Store custom types as JSONB
                     activity.objectJson = object;
+
+                    // Handle GPX data if present
+                    JsonNode gpxNode = object.get("gpxData");
+                    if (gpxNode != null && gpxNode.isTextual()) {
+                        String gpxXml = gpxNode.asText();
+                        GpxData gpxData = gpxService.parseGpx(gpxXml);
+
+                        if (gpxData != null) {
+                            activity.gpxData = gpxXml;
+                            activity.trackData = convertGpxDataToJsonNode(gpxData);
+
+                            // Auto-populate distance and duration from GPX summary
+                            if (activity.objectJson != null && activity.objectJson.isObject()) {
+                                ObjectNode objNode = (ObjectNode) activity.objectJson;
+                                objNode.put("distance", gpxData.summary.totalDistance);
+                                objNode.put("duration", gpxData.summary.totalDuration);
+                                objNode.put("averagePace", gpxData.summary.averagePace);
+                                objNode.put("elevationGain", gpxData.summary.elevationGain);
+                                objNode.put("elevationLoss", gpxData.summary.elevationLoss);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -100,5 +127,40 @@ public class ActivityService {
             noteNode.put("id", activity.objectId);
         }
         return noteNode;
+    }
+
+    /**
+     * Convert GpxData to a JsonNode for JSONB storage.
+     */
+    private JsonNode convertGpxDataToJsonNode(GpxData gpxData) {
+        ObjectNode root = objectMapper.createObjectNode();
+
+        // Store track points
+        ArrayNode pointsArray = objectMapper.createArrayNode();
+        for (TrackPoint point : gpxData.points) {
+            ObjectNode pointNode = objectMapper.createObjectNode();
+            pointNode.put("lat", point.latitude);
+            pointNode.put("lon", point.longitude);
+            pointNode.put("ele", point.elevation);
+            if (point.timestamp != null) {
+                pointNode.put("time", point.timestamp.toString());
+            }
+            pointNode.put("speed", point.speed);
+            pointsArray.add(pointNode);
+        }
+        root.set("points", pointsArray);
+
+        // Store summary
+        ObjectNode summaryNode = objectMapper.createObjectNode();
+        summaryNode.put("distance", gpxData.summary.totalDistance);
+        summaryNode.put("duration", gpxData.summary.totalDuration);
+        summaryNode.put("pace", gpxData.summary.averagePace);
+        summaryNode.put("elevationGain", gpxData.summary.elevationGain);
+        summaryNode.put("elevationLoss", gpxData.summary.elevationLoss);
+        summaryNode.put("maxSpeed", gpxData.summary.maxSpeed);
+        summaryNode.put("averageSpeed", gpxData.summary.averageSpeed);
+        root.set("summary", summaryNode);
+
+        return root;
     }
 }
