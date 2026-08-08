@@ -282,6 +282,59 @@ public class AppApiResource {
     }
 
     /**
+     * GET proxy for remote ActivityPub actor profiles.
+     * Avoids CORS issues when browser fetches from remote servers.
+     */
+    @GET
+    @Path("/federation/actor")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getRemoteActor(@QueryParam("url") String actorUrl) {
+        if (actorUrl == null || actorUrl.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("MISSING_PARAMETER", "Missing 'url' parameter"))
+                .build();
+        }
+
+        // Only proxy http/https URLs
+        if (!actorUrl.startsWith("http://") && !actorUrl.startsWith("https://")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_URL", "URL must be http or https"))
+                .build();
+        }
+
+        LOG.info("Actor profile proxy request: " + actorUrl);
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(actorUrl))
+                .header("Accept", "application/activity+json, application/json")
+                .GET()
+                .build();
+
+            HttpResponse<String> httpResponse = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (httpResponse.statusCode() == HttpURLConnection.HTTP_OK) {
+                return Response.ok(httpResponse.body(), "application/activity+json").build();
+            } else if (httpResponse.statusCode() == HttpURLConnection.HTTP_NOT_FOUND) {
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor not found at " + actorUrl))
+                    .build();
+            } else {
+                LOG.warning("Actor proxy failed: HTTP " + httpResponse.statusCode());
+                return Response.status(Response.Status.BAD_GATEWAY)
+                    .entity(new ErrorResponse("UPSTREAM_ERROR", "Upstream returned HTTP " + httpResponse.statusCode()))
+                    .build();
+            }
+        } catch (Exception e) {
+            LOG.warning("Actor proxy error: " + e.getMessage());
+            return Response.status(Response.Status.BAD_GATEWAY)
+                .entity(new ErrorResponse("PROXY_ERROR", "Failed to contact remote server: " + e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
      * GET known remote instances.
      */
     @GET
