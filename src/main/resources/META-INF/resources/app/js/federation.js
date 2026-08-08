@@ -11,7 +11,7 @@ const Federation = {
    */
   async resolveWebFinger(user, domain) {
     try {
-      const url = `/.well-known/webfinger?resource=acct:${user}@${domain}`;
+      const url = `/api/federation/webfinger?resource=acct:${user}@${domain}`;
       const response = await fetch(url, {
         headers: { 'Accept': 'application/jrd+json' }
       });
