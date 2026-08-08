@@ -33,6 +33,8 @@ public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
     @Override
     public Response toResponse(Exception exception) {
         LOG.warning("Unhandled exception: " + exception.getMessage());
+        LOG.warning("Exception type: " + exception.getClass().getName());
+        exception.printStackTrace();
 
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
             .entity(new ErrorResponse("Internal Server Error", "An unexpected error occurred"))
