@@ -35,16 +35,27 @@ public class ActivityRepository {
 
     /**
      * Find an activity by its ActivityPub ID (URL).
+     * Uses JOIN FETCH to prevent N+1 lazy loading on actor.
      */
     public Activity findByActivityId(String activityId) {
-        return Activity.findByActivityId(activityId);
+        List<Activity> results = entityManager.createQuery(
+            "SELECT a FROM Activity a JOIN FETCH a.actor WHERE a.activityId = ?1",
+            Activity.class)
+            .setParameter(1, activityId)
+            .getResultList();
+        return results.isEmpty() ? null : results.get(0);
     }
 
     /**
      * Find all activities by an actor, ordered by published date descending.
+     * Uses JOIN FETCH to prevent N+1 lazy loading.
      */
     public List<Activity> findByActor(Actor actor) {
-        return Activity.find("actor = ?1 ORDER BY publishedAt DESC", actor).list();
+        return entityManager.createQuery(
+            "SELECT a FROM Activity a JOIN FETCH a.actor WHERE a.actor = ?1 ORDER BY a.publishedAt DESC",
+            Activity.class)
+            .setParameter(1, actor)
+            .getResultList();
     }
 
     /**
@@ -95,7 +106,11 @@ public class ActivityRepository {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return Activity.find("id IN ?1 ORDER BY publishedAt DESC", ids).list();
+        return entityManager.createQuery(
+            "SELECT a FROM Activity a JOIN FETCH a.actor WHERE a.id IN ?1 ORDER BY a.publishedAt DESC",
+            Activity.class)
+            .setParameter(1, ids)
+            .getResultList();
     }
 
     /**
@@ -119,6 +134,10 @@ public class ActivityRepository {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return Activity.find("id IN ?1 ORDER BY publishedAt DESC", ids).list();
+        return entityManager.createQuery(
+            "SELECT a FROM Activity a JOIN FETCH a.actor WHERE a.id IN ?1 ORDER BY a.publishedAt DESC",
+            Activity.class)
+            .setParameter(1, ids)
+            .getResultList();
     }
 }
