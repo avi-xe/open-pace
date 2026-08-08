@@ -4,50 +4,54 @@ This document captures potential features, enhancements, and future sprints for 
 
 ## Current Status
 
-**Completed Sprints**: 1-7 (MVP Foundation)  
-**Planned Sprints**: 8-10 (Analytics, Social, Gear)  
-**Total Planned**: 10 sprints
+**Completed Sprints**: 1-7.5 (MVP Foundation + Consolidation)  
+**Planned Sprints**: 8.5-10 (Federation Protocol, Analytics, Social)  
+**Total Planned**: 10+ sprints
 
 ## Feature Comparison: Open Pace vs Strava
 
-### ✅ Covered in Current Sprints (1-7)
+### ✅ Covered in Current Sprints (1-7.5)
 
 | Feature | Sprint | Status |
 |---------|--------|--------|
-| Basic activity tracking (Run, Ride, Swim) | Sprint 2 | ✅ Planned |
-| GPX file handling | Sprint 3 | ✅ Planned |
-| Activity visualization | Sprint 3 | ✅ Planned |
-| Segments | Sprint 4 | ✅ Planned |
-| Leaderboards | Sprint 4 | ✅ Planned |
-| Privacy controls | Sprint 5 | ✅ Planned |
-| Data export | Sprint 5 | ✅ Planned |
-| Authentication/Authorization | Sprint 6 | ✅ Planned |
-| Maps and routes | Sprint 7 | ✅ Planned |
-| PostGIS geospatial storage | Sprint 7 | ✅ Planned |
+| Basic activity tracking (Run, Ride, Swim) | Sprint 2 | ✅ Complete |
+| GPX file handling | Sprint 3 | ✅ Complete |
+| Activity visualization | Sprint 3 | ✅ Complete |
+| Segments | Sprint 4 | ✅ Complete |
+| Leaderboards | Sprint 4 | ✅ Complete |
+| Privacy controls | Sprint 5 | ✅ Complete |
+| Data export | Sprint 5 | ✅ Complete |
+| Authentication/Authorization | Sprint 6 | ✅ Complete |
+| Maps and routes | Sprint 7 | ✅ Complete |
+| PostGIS geospatial storage | Sprint 7 | ✅ Complete |
+| DDD/TDD Consolidation | Sprint 7.5 | ✅ Complete |
+| HTTP Signature library research | Sprint 7.5 | ✅ Complete |
 
 ### ❌ Missing Features (Potential Future Sprints)
 
 | Feature | Priority | Suggested Sprint |
 |---------|----------|------------------|
-| Personal records & analytics | HIGH | Sprint 8 ✅ |
-| Activity feed & timeline | HIGH | Sprint 9 ✅ |
-| Comments & kudos | HIGH | Sprint 9 ✅ |
-| Advanced metrics (HR, power, cadence) | HIGH | Sprint 11 |
-| Device integration (Garmin, etc.) | HIGH | Sprint 11 |
-| Gear tracking | MEDIUM | Sprint 10 ✅ |
-| Clubs & groups | MEDIUM | Sprint 10 (alternative) |
-| Goals & training plans | MEDIUM | Sprint 13 |
-| Route planning & builder | MEDIUM | Sprint 14 |
-| Achievements & badges | MEDIUM | Sprint 15 |
+| HTTP Signatures (S2S federation) | HIGH | Sprint 8.5 ✅ |
+| OAM/OIDC (decentralized auth) | HIGH | Sprint 9 |
+| Personal records & analytics | HIGH | Sprint 10 |
+| Activity feed & timeline | HIGH | Sprint 11 |
+| Comments & kudos | HIGH | Sprint 11 |
+| Advanced metrics (HR, power, cadence) | HIGH | Sprint 12 |
+| Device integration (Garmin, etc.) | HIGH | Sprint 12 |
+| Gear tracking | MEDIUM | Sprint 13 |
+| Clubs & groups | MEDIUM | Sprint 13 |
+| Goals & training plans | MEDIUM | Sprint 14 |
+| Route planning & builder | MEDIUM | Sprint 15 |
+| Achievements & badges | MEDIUM | Sprint 16 |
 | Photos & media | MEDIUM | Sprint 17 |
-| Advanced analytics (premium) | LOW | Sprint 16 |
-| Mobile app | LOW | Sprint 18 |
-| Notifications & digests | LOW | Sprint 19 |
-| Federation enhancements | LOW | Sprint 20 |
+| Advanced analytics (premium) | LOW | Sprint 18 |
+| Mobile app | LOW | Sprint 19 |
+| Notifications & digests | LOW | Sprint 20 |
+| Federation enhancements | LOW | Sprint 21 |
 
-## Planned Sprints (8-10)
+## Planned Sprints (8.5-10)
 
-### Sprint 8: Activity Analytics & Personal Records ✅
+### Sprint 8.5: Federation Protocol & HTTP Signatures ✅
 **Status**: Planned  
 **Priority**: HIGH  
 **Phase**: Core Sports Platform
