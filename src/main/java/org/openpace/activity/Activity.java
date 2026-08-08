@@ -28,6 +28,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -42,11 +44,14 @@ public class Activity extends PanacheEntityBase {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_id", nullable = false)
+    @NotNull(message = "Actor is required")
     public Actor actor;
 
+    @NotBlank(message = "Activity type is required")
     @Column(name = "activity_type", nullable = false, length = 50)
     public String activityType;
 
+    @NotBlank(message = "Activity ID is required")
     @Column(name = "activity_id", nullable = false, unique = true, length = 500)
     public String activityId;
 
@@ -59,6 +64,7 @@ public class Activity extends PanacheEntityBase {
     @Column(name = "object_id", length = 500)
     public String objectId;
 
+    @NotNull(message = "Published date is required")
     @Column(name = "published_at", nullable = false)
     public LocalDateTime publishedAt;
 

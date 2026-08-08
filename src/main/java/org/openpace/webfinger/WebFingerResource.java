@@ -18,6 +18,7 @@ package org.openpace.webfinger;
 import org.openpace.actor.Actor;
 import org.openpace.activity.ActivityPubService;
 import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.shared.ErrorResponse;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -49,7 +50,7 @@ public class WebFingerResource {
     public Response webfinger(@QueryParam("resource") String resource) {
         if (resource == null || resource.isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
-                .entity(Map.of("error", "Missing 'resource' parameter"))
+                .entity(new ErrorResponse("MISSING_PARAMETER", "Missing 'resource' parameter"))
                 .build();
         }
 
@@ -57,15 +58,15 @@ public class WebFingerResource {
 
         // Expected format: acct:username@domain
         if (!resource.startsWith("acct:")) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity(Map.of("error", "Resource not found"))
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_RESOURCE", "Resource must use acct: URI scheme"))
                 .build();
         }
 
         String[] parts = resource.substring(5).split("@", 2);
         if (parts.length != 2) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity(Map.of("error", "Resource not found"))
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_RESOURCE", "Resource must be in format acct:username@domain"))
                 .build();
         }
 
@@ -76,7 +77,7 @@ public class WebFingerResource {
         if (actor == null) {
             LOG.info("Actor not found: " + username);
             return Response.status(Response.Status.NOT_FOUND)
-                .entity(Map.of("error", "Actor not found"))
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
                 .build();
         }
 

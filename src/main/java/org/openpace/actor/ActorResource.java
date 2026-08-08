@@ -17,6 +17,7 @@ package org.openpace.actor;
 
 import org.openpace.activity.ActivityPubService;
 import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.shared.ErrorResponse;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -45,7 +46,9 @@ public class ActorResource {
     public Response getActor(@PathParam("username") String username) {
         Actor actor = Actor.findByUsername(username);
         if (actor == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
         }
 
         LOG.info("Returning actor profile for: " + username);

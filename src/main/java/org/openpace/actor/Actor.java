@@ -23,6 +23,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -36,6 +39,9 @@ public class Actor extends PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
 
+    @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 100, message = "Username must be between 3 and 100 characters")
+    @Pattern(regexp = "^[a-z0-9_-]+$", message = "Username can only contain lowercase letters, numbers, underscores, and hyphens")
     @Column(nullable = false, unique = true, length = 100)
     public String username;
 

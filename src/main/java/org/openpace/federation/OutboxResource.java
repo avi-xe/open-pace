@@ -18,6 +18,7 @@ package org.openpace.federation;
 import org.openpace.actor.Actor;
 import org.openpace.activity.Activity;
 import org.openpace.activity.ActivityPubService;
+import org.openpace.activity.ActivityService;
 import org.openpace.activity.models.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 import org.openpace.social.Follower;
@@ -35,7 +36,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
-import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -55,6 +56,9 @@ public class OutboxResource {
     ActivityPubService activityPubService;
 
     @Inject
+    ActivityService activityService;
+
+    @Inject
     FederationDeliveryService federationDeliveryService;
 
     @Inject
@@ -70,13 +74,16 @@ public class OutboxResource {
      */
     @POST
     @Consumes(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
+    @Produces(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
     @Transactional
     public Response postOutbox(
             @PathParam("username") String username,
             String body) {
         Actor actor = Actor.findByUsername(username);
         if (actor == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
         }
 
         LOG.info("Received outbox activity from: " + username);
@@ -88,39 +95,14 @@ public class OutboxResource {
             String type = activityJson.has("type") ? activityJson.get("type").asText() : null;
             if (type == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("Bad Request", "Activity must have a 'type' field"))
+                    .entity(new ErrorResponse("MISSING_ACTIVITY_TYPE", "Activity must have a 'type' field"))
                     .build();
             }
 
-            // Generate activity ID
-            String activityId = actor.getActorId(getBaseUrl()) + "/activities/" + System.currentTimeMillis();
+            // Use ActivityService to create activity (handles JSONB storage for custom types)
+            Activity dbActivity = activityService.createActivity(actor, activityJson);
 
-            // Create and persist the activity
-            Activity dbActivity = new Activity();
-            dbActivity.actor = actor;
-            dbActivity.activityType = type;
-            dbActivity.activityId = activityId;
-            dbActivity.publishedAt = LocalDateTime.now();
-            dbActivity.createdAt = LocalDateTime.now();
-
-            // Extract object information
-            JsonNode object = activityJson.get("object");
-            if (object != null) {
-                if (object.isTextual()) {
-                    dbActivity.objectId = object.asText();
-                } else if (object.isObject()) {
-                    dbActivity.objectId = object.has("id") ? object.get("id").asText() : null;
-                    dbActivity.objectType = object.has("type") ? object.get("type").asText() : "Note";
-
-                    if ("Note".equals(dbActivity.objectType) || "Create".equals(type)) {
-                        dbActivity.objectContent = object.has("content") ? object.get("content").asText() : null;
-                    }
-                }
-            }
-
-            dbActivity.persist();
-
-            LOG.info("Created activity: " + activityId);
+            LOG.info("Created activity: " + dbActivity.activityId);
 
             // For Create activities, deliver to followers
             if ("Create".equals(type)) {
@@ -133,29 +115,68 @@ public class OutboxResource {
                 }
             }
 
-            return Response.accepted().entity(Map.of("id", activityId)).build();
+            // Return 201 Created with Location header
+            URI activityUri = URI.create(dbActivity.activityId);
+            return Response.created(activityUri)
+                .entity(Map.of("id", dbActivity.activityId))
+                .build();
 
         } catch (Exception e) {
             LOG.warning("Failed to process outbox activity: " + e.getMessage());
             return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse("Bad Request", e.getMessage()))
+                .entity(new ErrorResponse("INVALID_ACTIVITY", e.getMessage()))
                 .build();
         }
     }
 
     /**
-     * GET outbox — returns the outbox as an OrderedCollection.
+     * GET outbox — returns the outbox as an OrderedCollection with items.
      */
     @GET
     @Produces(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
     public Response getOutbox(@PathParam("username") String username) {
         Actor actor = Actor.findByUsername(username);
         if (actor == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
         }
 
+        // Get activities for this actor
+        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 ORDER BY publishedAt DESC", actor).list();
+        List<ActivityPubModels.Activity> activityModels = activities.stream()
+            .map(a -> activityPubService.toActivity(a))
+            .toList();
+
+        // Build collection with items embedded
         ActivityPubModels.OrderedCollection outbox = activityPubService.buildOutbox(actor);
+        outbox.orderedItems = activityModels.stream().map(a -> a.id).toList();
+
         return Response.ok(outbox).build();
+    }
+
+    /**
+     * GET outbox page — returns a page of the outbox collection.
+     */
+    @GET
+    @Path("/page")
+    @Produces(ActivityPubModels.APPLICATION_ACTIVITY_JSON)
+    public Response getOutboxPage(@PathParam("username") String username) {
+        Actor actor = Actor.findByUsername(username);
+        if (actor == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
+        }
+
+        // Get activities for this actor
+        List<Activity> activities = org.openpace.activity.Activity.find("actor = ?1 ORDER BY publishedAt DESC", actor).list();
+        List<ActivityPubModels.Activity> activityModels = activities.stream()
+            .map(a -> activityPubService.toActivity(a))
+            .toList();
+
+        ActivityPubModels.OrderedCollectionPage page = activityPubService.buildOutboxPage(actor, activityModels);
+        return Response.ok(page).build();
     }
 
     private String getBaseUrl() {

@@ -71,7 +71,7 @@ class OutboxResourceTest {
         .when()
             .post("/users/outbox-bob/outbox")
         .then()
-            .statusCode(202)
+            .statusCode(201)
             .body("id", notNullValue());
     }
 

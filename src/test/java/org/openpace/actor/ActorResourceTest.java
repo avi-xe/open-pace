@@ -74,7 +74,7 @@ class ActorResourceTest {
             .get("/users/actor-bob")
         .then()
             .statusCode(200)
-            .body("followers.id", notNullValue())
-            .body("following.id", notNullValue());
+            .body("followers", notNullValue())
+            .body("following", notNullValue());
     }
 }

@@ -44,28 +44,39 @@ A minimal ActivityPub server that can:
 - **REST resources**: WebFingerResource, ActorResource, InboxResource, OutboxResource, FollowersResource, ActivityResource
 - **Error handling**: ErrorResponse, ActivityPubException, GlobalExceptionMapper, ValidationExceptionMapper
 
-### Package Structure
+### Package Structure (Domain-Driven Design)
 
 ```
-org.openpace.core
-├── Actor.java                    # Actor entity
-├── Activity.java                 # Activity entity
-├── Follower.java                 # Follower entity
-├── ActivityPubModels.java        # JSON model classes
-├── ActivityPubService.java       # Core service
-├── FederationDeliveryService.java # Delivery via Vert.x
-├── WebFingerResource.java        # /.well-known/webfinger
-├── ActorResource.java            # /users/{username}
-├── InboxResource.java            # /users/{username}/inbox
-├── OutboxResource.java           # /users/{username}/outbox
-├── FollowersResource.java        # /users/{username}/followers|following
-├── ActivityResource.java         # /activities/{activityId}
-├── ErrorResponse.java            # Error response model
-├── ActivityPubException.java     # Custom exception
-├── GlobalExceptionMapper.java    # Unhandled exceptions
-├── ValidationExceptionMapper.java # Bean Validation errors
-├── ActivityPubExceptionMapper.java # ActivityPub errors
-└── OpenPaceApplication.java      # JAX-RS application
+org.openpace
+├── activity/                     # Activity domain
+│   ├── models/                   # ActivityPub POJOs
+│   │   └── ActivityPubModels.java
+│   ├── Activity.java             # Activity entity
+│   ├── ActivityType.java         # Supported activity types
+│   ├── ActivityPubService.java   # Core ActivityPub logic
+│   ├── ActivityService.java      # Activity business logic
+│   ├── ActivityRepository.java   # Activity persistence
+│   └── ActivityResource.java     # /activities/{activityId}
+├── actor/                        # Actor domain
+│   ├── Actor.java                # Actor entity
+│   └── ActorResource.java        # /users/{username}
+├── federation/                   # Federation domain
+│   ├── InboxResource.java        # /users/{username}/inbox
+│   ├── OutboxResource.java       # /users/{username}/outbox
+│   └── FederationDeliveryService.java # Delivery via Vert.x
+├── social/                       # Social domain
+│   ├── Follower.java             # Follower entity
+│   └── FollowersResource.java    # /users/{username}/followers|following
+├── webfinger/                    # Discovery domain
+│   └── WebFingerResource.java    # /.well-known/webfinger
+└── shared/                       # Cross-cutting concerns
+    ├── ErrorResponse.java        # Error response model
+    ├── OpenPaceApplication.java  # JAX-RS application
+    └── exception/
+        ├── ActivityPubException.java     # Custom exception
+        ├── ActivityPubExceptionMapper.java # ActivityPub errors
+        ├── GlobalExceptionMapper.java    # Unhandled exceptions
+        └── ValidationExceptionMapper.java # Bean Validation errors
 ```
 
 ## Implementation Steps

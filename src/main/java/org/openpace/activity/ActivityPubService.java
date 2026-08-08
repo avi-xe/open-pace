@@ -127,6 +127,8 @@ public class ActivityPubService {
 
     /**
      * Build the ActivityPub Person actor for a given user.
+     *
+     * Per ActivityPub spec, inbox, outbox, followers, and following are all string URLs.
      */
     public ActivityPubModels.Actor buildActor(Actor actor) {
         String baseUrl = getBaseUrl();
@@ -136,13 +138,10 @@ public class ActivityPubService {
         model.id = actor.getActorId(baseUrl);
         model.preferredUsername = actor.username;
         model.name = actor.name;
-        model.inbox = new ActivityPubModels.Actor.Inbox();
-        model.inbox.type = "OrderedCollection";
-        model.inbox.totalItems = String.valueOf(Follower.countByActor(actor));
-        model.inbox.first = true;
+        model.inbox = actor.getInboxUrl(baseUrl);
         model.outbox = actor.getOutboxUrl(baseUrl);
-        model.followers = Map.of("id", actor.getFollowersUrl(baseUrl));
-        model.following = Map.of("id", actor.getFollowingUrl(baseUrl));
+        model.followers = actor.getFollowersUrl(baseUrl);
+        model.following = actor.getFollowingUrl(baseUrl);
         return model;
     }
 
@@ -220,6 +219,8 @@ public class ActivityPubService {
 
     /**
      * Build an ActivityPub Activity from a database Activity entity.
+     *
+     * Handles both Note objects (from objectContent) and custom types (from objectJson).
      */
     public ActivityPubModels.Activity toActivity(Activity dbActivity) {
         String baseUrl = getBaseUrl();
@@ -230,16 +231,24 @@ public class ActivityPubService {
         model.actor = dbActivity.actor.getActorId(baseUrl);
         model.published = dbActivity.publishedAt.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
-        // Build object based on type
+        // Build object based on type and storage
         if ("Create".equals(dbActivity.activityType)) {
-            ActivityPubModels.Note note = new ActivityPubModels.Note();
-            note.type = dbActivity.objectType != null ? dbActivity.objectType : "Note";
-            note.id = dbActivity.objectId;
-            note.content = dbActivity.objectContent;
-            note.attributedTo = model.actor;
-            note.published = model.published;
-            model.object = note;
+            // Check if we have stored JSON (custom type like Run, Ride, etc.)
+            if (dbActivity.objectJson != null) {
+                // Use the stored JSON directly for custom types
+                model.object = dbActivity.objectJson;
+            } else {
+                // Reconstruct Note from objectContent
+                ActivityPubModels.Note note = new ActivityPubModels.Note();
+                note.type = dbActivity.objectType != null ? dbActivity.objectType : "Note";
+                note.id = dbActivity.objectId;
+                note.content = dbActivity.objectContent;
+                note.attributedTo = model.actor;
+                note.published = model.published;
+                model.object = note;
+            }
         } else {
+            // For non-Create activities (Follow, Like, etc.), object is just the URL
             model.object = dbActivity.objectId;
         }
 

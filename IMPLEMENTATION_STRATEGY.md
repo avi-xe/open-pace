@@ -44,16 +44,13 @@ open-pace/                         # Repository root
 ├── src/
 │   ├── main/
 │   │   ├── java/org/openpace/
-│   │   │   ├── core/             # Core ActivityPub logic (Sprint 1+)
-│   │   │   ├── activities/       # Custom activity types (Sprint 2+)
-│   │   │   ├── rendering/        # Activity rendering (Sprint 3+)
-│   │   │   ├── sports/           # Sports features (Sprint 4+)
-│   │   │   ├── privacy/          # Privacy features (Sprint 5+)
-│   │   │   ├── security/         # Security integration (Sprint 6+)
-│   │   │   ├── mapping/          # Mapping integration (Sprint 7+)
-│   │   │   ├── analytics/        # Analytics (Sprint 8+)
-│   │   │   ├── social/           # Social features (Sprint 9+)
-│   │   │   └── gear/             # Gear tracking (Sprint 10+)
+│   │   │   ├── activity/         # Activity entities, services, ActivityPub models
+│   │   │   │   └── models/       # ActivityPub POJOs (ActivityPubModels.java)
+│   │   │   ├── actor/            # Actor (user) entities and endpoints
+│   │   │   ├── federation/       # Inbox/Outbox resources, delivery service
+│   │   │   ├── social/           # Follower entities, followers/following
+│   │   │   ├── webfinger/        # WebFinger discovery
+│   │   │   └── shared/           # Common exceptions, Application.java entry
 │   │   └── resources/
 │   │       ├── application.properties
 │   │       └── db/migration/     # Flyway migrations
@@ -61,13 +58,11 @@ open-pace/                         # Repository root
 │       └── java/org/openpace/    # Tests organized by package
 │
 ├── docs/                          # Shared documentation
-│   ├── part-1-basic-activitypub.md
-│   ├── part-2-custom-activities.md
-│   ├── part-3-rich-interop.md
-│   ├── part-4-sports-features.md
-│   ├── part-5-privacy-data.md
+│   ├── sprint-1-basic-activitypub.md
+│   ├── sprint-2-custom-activities.md
 │   ├── ACTIVITYPUB_REFERENCE.md
-│   └── PROJECT_SETUP.md
+│   ├── PROJECT_SETUP.md
+│   └── ...
 │
 └── LICENSE                        # Apache 2.0 License
 ```
@@ -472,43 +467,51 @@ Each implementation sprint should follow this structure:
 
 ## Code Organization Strategy
 
-### 1. **Package Structure**
-Packages evolve incrementally as sprints progress:
+### 1. **Package Structure (Domain-Driven Design)**
+
+Packages are organized by domain, following DDD principles. Each domain package contains its own entities, services, and resources:
 
 ```
-Sprint 1 (v0.1.0-sprint1): 
-  org.openpace.core.*
-
-Sprint 2 (v0.2.0-sprint2): 
-  org.openpace.core.* (existing)
-  + org.openpace.activities.* (new)
-
-Sprint 3 (v0.3.0-sprint3): 
-  org.openpace.core.* (existing)
-  org.openpace.activities.* (existing)
-  + org.openpace.rendering.* (new)
-
-Sprint 4 (v0.4.0-sprint4): 
-  + org.openpace.sports.* (new)
-
-Sprint 5 (v0.5.0-sprint5): 
-  + org.openpace.privacy.* (new)
-
-Sprint 6 (v0.6.0-sprint6): 
-  + org.openpace.security.* (new)
-
-Sprint 7 (v0.7.0-sprint7): 
-  + org.openpace.mapping.* (new)
-
-Sprint 8 (v0.8.0-sprint8): 
-  + org.openpace.analytics.* (new)
-
-Sprint 9 (v0.9.0-sprint9): 
-  + org.openpace.social.* (new)
-
-Sprint 10 (v1.0.0-sprint10): 
-  + org.openpace.gear.* (new)
+org.openpace
+├── activity/         # Activity domain: entities, services, ActivityPub models
+│   ├── models/       # ActivityPub POJOs (ActivityPubModels.java)
+│   ├── Activity.java
+│   ├── ActivityType.java
+│   ├── ActivityService.java
+│   ├── ActivityPubService.java
+│   ├── ActivityRepository.java
+│   └── ActivityResource.java
+├── actor/            # Actor domain: user identity and profiles
+│   ├── Actor.java
+│   └── ActorResource.java
+├── federation/       # Federation domain: inbox/outbox, delivery
+│   ├── InboxResource.java
+│   ├── OutboxResource.java
+│   └── FederationDeliveryService.java
+├── social/           # Social domain: followers, following
+│   ├── Follower.java
+│   └── FollowersResource.java
+├── webfinger/        # Discovery domain: WebFinger protocol
+│   └── WebFingerResource.java
+└── shared/           # Cross-cutting: error handling, app entry
+    ├── ErrorResponse.java
+    ├── OpenPaceApplication.java
+    └── exception/
+        ├── ActivityPubException.java
+        ├── ActivityPubExceptionMapper.java
+        ├── GlobalExceptionMapper.java
+        └── ValidationExceptionMapper.java
 ```
+
+**Sprint Evolution**: New domains are added as sprints progress:
+- Sprint 1+: `activity`, `actor`, `federation`, `social`, `webfinger`, `shared` (core ActivityPub)
+- Sprint 2+: Extend `activity` with custom types (Run, Ride, Swim)
+- Sprint 3+: Add comments, likes, attachments to `activity` domain
+- Sprint 6+: Add `security/` domain (authentication, authorization)
+- Sprint 7+: Add `mapping/` domain (GPX, PostGIS, OSM)
+- Sprint 8+: Add `analytics/` domain (stats, personal records)
+- Sprint 9+: Extend `social/` domain (feed, interactions)
+- Sprint 10+: Add `gear/` domain (equipment tracking)
 
 **Note**: Each sprint builds on the previous codebase. Code from earlier sprints remains in the codebase and is extended/refined. Use git tags to access the state at any sprint.
 
@@ -885,9 +888,11 @@ git checkout develop
 
 ### Code Evolution
 
-- **Sprint 1**: Creates `org.openpace.core.*` package
-- **Sprint 2**: Adds `org.openpace.activities.*` package, may refine core
-- **Sprint 3**: Adds `org.openpace.rendering.*` package, builds on previous
+- **Sprint 1**: Creates core domain packages: `activity`, `actor`, `federation`, `social`, `webfinger`, `shared`
+- **Sprint 2**: Extends `activity` domain with custom sports types (Run, Ride, Swim) and JSONB storage
+- **Sprint 3**: Extends `activity` domain with comments, likes, and attachments
+- **Sprint 6**: Adds `security` domain for authentication and authorization
+- **Sprint 7**: Adds `mapping` domain for geospatial data and map visualization
 - Each sprint adds new functionality while maintaining existing code
 
 ## Implementation Decisions Documentation
