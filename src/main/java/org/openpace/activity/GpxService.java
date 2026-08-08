@@ -16,16 +16,13 @@
 package org.openpace.activity;
 
 import io.jenetics.jpx.GPX;
-import io.jenetics.jpx.Track;
-import io.jenetics.jpx.TrackSegment;
-import io.jenetics.jpx.TrackPoint;
+import io.jenetics.jpx.Length;
+import io.jenetics.jpx.WayPoint;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.io.StringReader;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -53,22 +50,15 @@ public class GpxService {
         }
 
         try {
-            GPX gpx = GPX.read(new StringReader(gpxXml));
-            List<Track> tracks = gpx.tracks();
-
-            if (tracks.isEmpty()) {
-                return null;
-            }
+            GPX gpx = GPX.Reader.DEFAULT.fromString(gpxXml);
 
             // Collect all track points from all tracks/segments
             List<org.openpace.activity.TrackPoint> allPoints = new ArrayList<>();
 
-            for (Track track : tracks) {
-                for (TrackSegment segment : track.segments()) {
-                    List<TrackPoint> jpxPoints = segment.points();
-                    for (int i = 0; i < jpxPoints.size(); i++) {
-                        TrackPoint jpxPoint = jpxPoints.get(i);
-                        org.openpace.activity.TrackPoint point = convertTrackPoint(jpxPoint);
+            for (var track : gpx.getTracks()) {
+                for (var segment : track.getSegments()) {
+                    for (WayPoint jpxPoint : segment.getPoints()) {
+                        org.openpace.activity.TrackPoint point = convertWayPoint(jpxPoint);
 
                         // Calculate speed from previous point
                         if (!allPoints.isEmpty() && point.timestamp != null) {
@@ -119,13 +109,15 @@ public class GpxService {
     }
 
     /**
-     * Convert a jpx TrackPoint to our TrackPoint model.
+     * Convert a jpx WayPoint to our TrackPoint model.
      */
-    private org.openpace.activity.TrackPoint convertTrackPoint(TrackPoint jpxPoint) {
-        double lat = jpxPoint.latitude().orElseThrow().doubleValue();
-        double lon = jpxPoint.longitude().orElseThrow().doubleValue();
-        double ele = jpxPoint.elevation().orElse(0.0).doubleValue();
-        Instant time = jpxPoint.time().orElse(null);
+    private org.openpace.activity.TrackPoint convertWayPoint(WayPoint jpxPoint) {
+        double lat = jpxPoint.getLatitude().doubleValue();
+        double lon = jpxPoint.getLongitude().doubleValue();
+        double ele = jpxPoint.getElevation()
+            .map(Length::doubleValue)
+            .orElse(0.0);
+        Instant time = jpxPoint.getTime().orElse(null);
 
         return new org.openpace.activity.TrackPoint(lat, lon, ele, time, 0);
     }

@@ -82,7 +82,7 @@ public class Activity extends PanacheEntityBase {
      * Parsed track data as JSONB.
      * Structure: { "points": [{lat, lon, ele, time, speed}], "summary": {...} }
      */
-    @Column(name = "track_data", columnDefinition = "jsonb")
+    @Column(name = "track_data")
     @JdbcTypeCode(SqlTypes.JSON)
     public JsonNode trackData;
 
