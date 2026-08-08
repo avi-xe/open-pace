@@ -17,6 +17,7 @@ package org.openpace.activity;
 
 import org.openpace.actor.Actor;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -28,6 +29,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "activities")
@@ -59,6 +62,10 @@ public class Activity extends PanacheEntityBase {
     @Column(name = "published_at", nullable = false)
     public LocalDateTime publishedAt;
 
+    @Column(name = "object_json")
+    @JdbcTypeCode(SqlTypes.JSON)
+    public JsonNode objectJson;
+
     @Column(name = "created_at")
     public LocalDateTime createdAt;
 
@@ -68,5 +75,15 @@ public class Activity extends PanacheEntityBase {
 
     public static Activity findByActivityId(String activityId) {
         return find("activityId", activityId).firstResult();
+    }
+
+    /**
+     * Get the ActivityType enum for this activity.
+     */
+    public ActivityType getActivityType() {
+        if (objectType != null) {
+            return ActivityType.fromDisplayName(objectType);
+        }
+        return ActivityType.NOTE;
     }
 }
