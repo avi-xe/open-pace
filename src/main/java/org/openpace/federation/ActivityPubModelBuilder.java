@@ -17,7 +17,7 @@ package org.openpace.federation;
 
 import org.openpace.actor.Actor;
 import org.openpace.activity.Activity;
-import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.federation.protocol.ActivityPubModels;
 import org.openpace.social.Follower;
 
 import jakarta.inject.Singleton;

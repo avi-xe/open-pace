@@ -16,7 +16,7 @@
 package org.openpace.federation;
 
 import org.openpace.actor.Actor;
-import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.federation.protocol.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 
 import com.fasterxml.jackson.databind.JsonNode;

@@ -16,7 +16,7 @@
 package org.openpace.federation;
 
 import org.openpace.activity.Activity;
-import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.federation.protocol.ActivityPubModels;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;

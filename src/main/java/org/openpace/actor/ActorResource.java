@@ -16,7 +16,7 @@
 package org.openpace.actor;
 
 import org.openpace.federation.ActivityPubModelBuilder;
-import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.federation.protocol.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 
 import jakarta.inject.Inject;

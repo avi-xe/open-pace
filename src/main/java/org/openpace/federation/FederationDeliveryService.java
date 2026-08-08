@@ -15,7 +15,7 @@
  */
 package org.openpace.federation;
 
-import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.federation.protocol.ActivityPubModels;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
