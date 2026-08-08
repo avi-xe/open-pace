@@ -137,37 +137,10 @@ public class ActivityService {
 
     /**
      * Convert GpxData to a JsonNode for JSONB storage.
+     * Delegates to GpxUtils for shared implementation.
      */
     private JsonNode convertGpxDataToJsonNode(GpxData gpxData) {
-        ObjectNode root = objectMapper.createObjectNode();
-
-        // Store track points
-        ArrayNode pointsArray = objectMapper.createArrayNode();
-        for (TrackPoint point : gpxData.points) {
-            ObjectNode pointNode = objectMapper.createObjectNode();
-            pointNode.put("lat", point.latitude);
-            pointNode.put("lon", point.longitude);
-            pointNode.put("ele", point.elevation);
-            if (point.timestamp != null) {
-                pointNode.put("time", point.timestamp.toString());
-            }
-            pointNode.put("speed", point.speed);
-            pointsArray.add(pointNode);
-        }
-        root.set("points", pointsArray);
-
-        // Store summary
-        ObjectNode summaryNode = objectMapper.createObjectNode();
-        summaryNode.put("distance", gpxData.summary.totalDistance);
-        summaryNode.put("duration", gpxData.summary.totalDuration);
-        summaryNode.put("pace", gpxData.summary.averagePace);
-        summaryNode.put("elevationGain", gpxData.summary.elevationGain);
-        summaryNode.put("elevationLoss", gpxData.summary.elevationLoss);
-        summaryNode.put("maxSpeed", gpxData.summary.maxSpeed);
-        summaryNode.put("averageSpeed", gpxData.summary.averageSpeed);
-        root.set("summary", summaryNode);
-
-        return root;
+        return org.openpace.shared.GpxUtils.convertGpxDataToJsonNode(gpxData);
     }
 
     /**

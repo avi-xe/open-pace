@@ -126,49 +126,10 @@ public class ExportResource {
 
     /**
      * Convert stored trackData JSONB back to a GpxData object.
+     * Delegates to GpxUtils for shared implementation.
      */
     private GpxData convertTrackDataToGpxData(Activity activity) {
-        try {
-            JsonNode trackData = activity.trackData;
-            if (trackData == null) {
-                return null;
-            }
-
-            GpxData gpxData = new GpxData();
-            gpxData.points = new java.util.ArrayList<>();
-
-            JsonNode pointsNode = trackData.get("points");
-            if (pointsNode != null && pointsNode.isArray()) {
-                for (JsonNode p : pointsNode) {
-                    TrackPoint point = new TrackPoint();
-                    point.latitude = p.get("lat").asDouble();
-                    point.longitude = p.get("lon").asDouble();
-                    point.elevation = p.has("ele") ? p.get("ele").asDouble() : 0;
-                    point.speed = p.has("speed") ? p.get("speed").asDouble() : 0;
-                    if (p.has("time") && !p.get("time").isNull()) {
-                        point.timestamp = java.time.Instant.parse(p.get("time").asText());
-                    }
-                    gpxData.points.add(point);
-                }
-            }
-
-            JsonNode summaryNode = trackData.get("summary");
-            if (summaryNode != null) {
-                gpxData.summary = new TrackSummary();
-                gpxData.summary.totalDistance = summaryNode.has("distance") ? summaryNode.get("distance").asDouble() : 0;
-                gpxData.summary.totalDuration = summaryNode.has("duration") ? summaryNode.get("duration").asLong() : 0;
-                gpxData.summary.averagePace = summaryNode.has("pace") ? summaryNode.get("pace").asDouble() : 0;
-                gpxData.summary.elevationGain = summaryNode.has("elevationGain") ? summaryNode.get("elevationGain").asDouble() : 0;
-                gpxData.summary.elevationLoss = summaryNode.has("elevationLoss") ? summaryNode.get("elevationLoss").asDouble() : 0;
-                gpxData.summary.maxSpeed = summaryNode.has("maxSpeed") ? summaryNode.get("maxSpeed").asDouble() : 0;
-                gpxData.summary.averageSpeed = summaryNode.has("averageSpeed") ? summaryNode.get("averageSpeed").asDouble() : 0;
-            }
-
-            return gpxData;
-        } catch (Exception e) {
-            LOG.warning("Failed to convert track data: " + e.getMessage());
-            return null;
-        }
+        return org.openpace.shared.GpxUtils.parseTrackData(activity.trackData);
     }
 
     /**
