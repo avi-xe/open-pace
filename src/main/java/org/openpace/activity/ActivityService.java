@@ -86,6 +86,9 @@ public class ActivityService {
                             activity.gpxData = gpxXml;
                             activity.trackData = convertGpxDataToJsonNode(gpxData);
 
+                            // Populate PostGIS geometry from GPX track points
+                            populateGeometry(activity, gpxData);
+
                             // Auto-populate distance and duration from GPX summary
                             if (activity.objectJson != null && activity.objectJson.isObject()) {
                                 ObjectNode objNode = (ObjectNode) activity.objectJson;
@@ -162,5 +165,36 @@ public class ActivityService {
         root.set("summary", summaryNode);
 
         return root;
+    }
+
+    /**
+     * Populate PostGIS geometry fields from GPX track data.
+     * Builds LineString from track points and extracts start/end Points.
+     */
+    private void populateGeometry(Activity activity, GpxData gpxData) {
+        if (gpxData.points == null || gpxData.points.isEmpty()) {
+            return;
+        }
+
+        org.locationtech.jts.geom.GeometryFactory geometryFactory =
+            new org.locationtech.jts.geom.GeometryFactory(new org.locationtech.jts.geom.PrecisionModel(), 4326);
+
+        // Build coordinate array for LineString
+        org.locationtech.jts.geom.Coordinate[] coordinates =
+            new org.locationtech.jts.geom.Coordinate[gpxData.points.size()];
+
+        for (int i = 0; i < gpxData.points.size(); i++) {
+            TrackPoint point = gpxData.points.get(i);
+            coordinates[i] = new org.locationtech.jts.geom.Coordinate(point.longitude, point.latitude);
+        }
+
+        // Create LineString (simplified for large tracks)
+        if (coordinates.length >= 2) {
+            activity.trackLine = geometryFactory.createLineString(coordinates);
+
+            // Extract start and end points
+            activity.startPoint = geometryFactory.createPoint(coordinates[0]);
+            activity.endPoint = geometryFactory.createPoint(coordinates[coordinates.length - 1]);
+        }
     }
 }

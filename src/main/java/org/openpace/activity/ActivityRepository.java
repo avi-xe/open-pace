@@ -69,4 +69,30 @@ public class ActivityRepository {
     public void persist(Activity activity) {
         activity.persist();
     }
+
+    /**
+     * Find activities within a given radius of a point (in meters).
+     * Uses PostGIS ST_DWithin for efficient spatial queries.
+     */
+    public List<Activity> findNearby(double latitude, double longitude, double radiusMeters) {
+        return Activity.find(
+            "SELECT a FROM Activity a WHERE a.startPoint IS NOT NULL " +
+            "AND func('ST_DWithin', a.startPoint, func('ST_SetSRID', func('ST_MakePoint', ?1, ?2), 4326), ?3) " +
+            "ORDER BY a.publishedAt DESC",
+            longitude, latitude, radiusMeters
+        ).list();
+    }
+
+    /**
+     * Find activities within a bounding box.
+     * Uses PostGIS ST_Envelope for spatial containment.
+     */
+    public List<Activity> findInBoundingBox(double minLat, double minLon, double maxLat, double maxLon) {
+        return Activity.find(
+            "SELECT a FROM Activity a WHERE a.startPoint IS NOT NULL " +
+            "AND func('ST_Within', a.startPoint, func('ST_SetSRID', func('ST_MakeEnvelope', ?1, ?2, ?3, ?4), 4326)) " +
+            "ORDER BY a.publishedAt DESC",
+            minLon, minLat, maxLon, maxLat
+        ).list();
+    }
 }

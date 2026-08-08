@@ -81,11 +81,18 @@
             <version>3.0.1</version>
         </dependency>
 
-        <!-- Geometry Types (for track calculations) -->
+        <!-- Geometry Types (for track calculations + PostGIS) -->
         <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
             <version>1.18.2</version>
+        </dependency>
+
+        <!-- Hibernate Spatial (PostGIS geometry mapping for JTS types) -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-spatial</artifactId>
+            <version>7.1.11.Final</version>
         </dependency>
 
         <!-- API Documentation (for /api/* endpoints) -->

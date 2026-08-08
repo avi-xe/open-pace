@@ -33,6 +33,8 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
 
 @Entity
 @Table(name = "activities")
@@ -94,6 +96,28 @@ public class Activity extends PanacheEntityBase {
      */
     @Column(name = "visibility", nullable = false, length = 20)
     public String visibility = "public";
+
+    /**
+     * Simplified GPX track stored as PostGIS LineString.
+     * SRID 4326 = WGS84 (lat/lon coordinate system).
+     * Populated when activity has GPX data.
+     */
+    @Column(name = "track_line", columnDefinition = "geometry(LineString, 4326)")
+    public LineString trackLine;
+
+    /**
+     * Start point of the activity route.
+     * Stored as PostGIS Point for fast spatial queries.
+     */
+    @Column(name = "start_point", columnDefinition = "geometry(Point, 4326)")
+    public Point startPoint;
+
+    /**
+     * End point of the activity route.
+     * Stored as PostGIS Point for fast spatial queries.
+     */
+    @Column(name = "end_point", columnDefinition = "geometry(Point, 4326)")
+    public Point endPoint;
 
     @Column(name = "created_at")
     public LocalDateTime createdAt;
