@@ -90,6 +90,8 @@ public class AuthResource {
 
         // Create user with hashed password
         User user = User.create(username, password, "user");
+        user.email = email;
+        user.persist();
         LOG.info("Created user: " + user.username);
 
         // Create linked actor
@@ -109,6 +111,8 @@ public class AuthResource {
     @GET
     @Path("/me")
     @Produces(MediaType.APPLICATION_JSON)
+    @Transactional
+    @jakarta.annotation.security.RolesAllowed("user")
     public Response me() {
         String username = securityIdentity.getPrincipal().getName();
 

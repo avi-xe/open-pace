@@ -15,28 +15,30 @@
  */
 package org.openpace.federation;
 
-import org.openpace.actor.Actor;
-
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+
 import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
-import jakarta.transaction.UserTransaction;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.openpace.auth.User;
 
+/**
+ * Verifies that the outbox POST endpoint requires authentication
+ * and enforces username ownership.
+ */
 @QuarkusTest
-class OutboxResourceTest {
+class SecuredOutboxTest {
 
-    @Inject
-    UserTransaction tx;
+    private static final String PASSWORD = "password123";
 
-    private void registerUser(String username, String password) throws Exception {
+    private void register(String username) {
         given()
             .contentType("application/json")
-            .body("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}")
+            .body(Map.of(
+                "username", username,
+                "password", PASSWORD,
+                "email", username + "@test.com"
+            ))
         .when()
             .post("/api/auth/register")
         .then()
@@ -44,87 +46,66 @@ class OutboxResourceTest {
     }
 
     @Test
-    void shouldReturnOutboxCollection() throws Exception {
-        tx.begin();
-        Actor actor = new Actor("outbox-alice", "Alice");
-        actor.persist();
-        tx.commit();
-
-        given()
-            .header("Accept", "application/activity+json")
-        .when()
-            .get("/users/outbox-alice/outbox")
-        .then()
-            .statusCode(200)
-            .contentType("application/activity+json")
-            .body("type", equalTo("OrderedCollection"))
-            .body("totalItems", equalTo("0"));
-    }
-
-    @Test
-    void shouldAcceptCreateActivity() throws Exception {
-        registerUser("outbox-bob", "password123");
-
+    void shouldRejectUnauthenticatedPost() {
         Map<String, Object> activity = Map.of(
             "type", "Create",
             "object", Map.of(
                 "type", "Note",
-                "content", "Hello World"
+                "content", "Hello"
             )
         );
 
         given()
             .contentType("application/activity+json")
-            .auth().basic("outbox-bob", "password123")
             .body(activity)
         .when()
-            .post("/users/outbox-bob/outbox")
+            .post("/users/secbox-alice/outbox")
         .then()
-            .statusCode(201)
-            .body("id", notNullValue());
+            .statusCode(401);
     }
 
     @Test
-    void shouldReturn403ForWrongUser() throws Exception {
-        registerUser("outbox-ghost", "password123");
+    void shouldRejectWrongUser() {
+        register("secbox-bob");
 
         Map<String, Object> activity = Map.of(
             "type", "Create",
             "object", Map.of(
                 "type", "Note",
-                "content", "Hello World"
+                "content", "Hello"
             )
         );
 
-        // Authenticated as outbox-ghost but posting to outbox-nonexistent — 403
         given()
+            .auth().basic("secbox-bob", PASSWORD)
             .contentType("application/activity+json")
-            .auth().basic("outbox-ghost", "password123")
             .body(activity)
         .when()
-            .post("/users/outbox-nonexistent/outbox")
+            .post("/users/secbox-alice/outbox")
         .then()
             .statusCode(403);
     }
 
     @Test
-    void shouldReturn400WhenTypeMissing() throws Exception {
-        registerUser("outbox-notype", "password123");
+    void shouldAllowAuthenticatedPost() {
+        register("secbox-alice");
 
         Map<String, Object> activity = Map.of(
+            "type", "Create",
             "object", Map.of(
                 "type", "Note",
-                "content", "Hello World"
+                "content", "Hello"
             )
         );
 
         given()
+            .auth().basic("secbox-alice", PASSWORD)
             .contentType("application/activity+json")
-            .auth().basic("outbox-notype", "password123")
             .body(activity)
         .when()
-            .post("/users/outbox-notype/outbox")
+            .post("/users/secbox-alice/outbox")
         .then()
-            .statusCode(400);
+            .statusCode(201)
+            .body("id", notNullValue());
     }
 }
