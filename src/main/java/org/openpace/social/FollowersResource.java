@@ -18,6 +18,7 @@ package org.openpace.social;
 import org.openpace.actor.Actor;
 import org.openpace.activity.ActivityPubService;
 import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.shared.ErrorResponse;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -48,7 +49,9 @@ public class FollowersResource {
     public Response getFollowers(@PathParam("username") String username) {
         Actor actor = Actor.findByUsername(username);
         if (actor == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
         }
 
         LOG.info("Returning followers for: " + username);
@@ -65,7 +68,9 @@ public class FollowersResource {
     public Response getFollowersPage(@PathParam("username") String username) {
         Actor actor = Actor.findByUsername(username);
         if (actor == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
         }
 
         List<Follower> followerEntities = Follower.findByActor(actor);
@@ -86,7 +91,9 @@ public class FollowersResource {
     public Response getFollowing(@PathParam("username") String username) {
         Actor actor = Actor.findByUsername(username);
         if (actor == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
         }
 
         LOG.info("Returning following for: " + username);

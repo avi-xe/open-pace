@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discover — Open Pace</title>
+  <link rel="stylesheet" href="/app/css/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/app/js/api.js"></script>
+  <script src="/app/js/federation.js"></script>
+</head>
+<body x-data="discoverApp()">
+
+  <nav class="nav">
+    <div class="nav-brand">🏃 Open<span>Pace</span></div>
+    <div class="nav-links">
+      <a href="/app/">Universe</a>
+      <a href="/app/discover.html" class="active">Discover</a>
+      <a href="/app/feed.html">Feed</a>
+      <a href="/app/new.html">New Activity</a>
+      <a href="/app/leaderboards.html">Leaderboards</a>
+    </div>
+    <div class="nav-auth">
+      <template x-if="!isLoggedIn">
+        <div style="display:flex;gap:0.5rem;">
+          <button @click="showLogin=true" class="btn btn-secondary btn-sm">Login</button>
+          <button @click="showRegister=true" class="btn btn-primary btn-sm">Register</button>
+        </div>
+      </template>
+      <template x-if="isLoggedIn">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <a :href="'/app/profile.html?user=' + username" x-text="username" style="color:var(--accent-green);"></a>
+          <button @click="logout()" class="btn btn-secondary btn-sm">Logout</button>
+        </div>
+      </template>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>🔍 Discover Athletes</h1>
+      <p>Find athletes across the fediverse using WebFinger.</p>
+    </div>
+
+    <!-- Search -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div style="display:flex;gap:0.75rem;">
+        <input type="text" class="form-input" placeholder="@alice@mastodon.social"
+               x-model="searchInput" @keyup.enter="search()"
+               style="flex:1;">
+        <button @click="search()" class="btn btn-primary" :disabled="searching">
+          <span x-show="!searching">🔍 Search</span>
+          <span x-show="searching">Resolving...</span>
+        </button>
+      </div>
+      <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem;">
+        Enter a WebFinger address like <code>@alice@mastodon.social</code>
+      </p>
+    </div>
+
+    <!-- Search Error -->
+    <template x-if="searchError">
+      <div class="card" style="border-color:var(--accent-red);margin-bottom:1.5rem;">
+        <p style="color:var(--accent-red);">❌ <span x-text="searchError"></span></p>
+      </div>
+    </template>
+
+    <!-- Resolved Profile -->
+    <template x-if="resolvedProfile">
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header">
+          <span class="card-title">Resolved Profile</span>
+          <span class="badge badge-remote">🌐 Remote</span>
+        </div>
+        <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+          <div class="activity-avatar" style="width:64px;height:64px;font-size:1.5rem;"
+               x-text="(resolvedProfile.preferredUsername || '?')[0]?.toUpperCase()"></div>
+          <div style="flex:1;">
+            <h3 x-text="resolvedProfile.name || resolvedProfile.preferredUsername"></h3>
+            <p style="color:var(--text-secondary);">
+              🌐 <span x-text="getInstanceDomain(resolvedProfile.id)"></span>
+            </p>
+            <div style="display:flex;gap:1rem;margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem;">
+              <span>Followers: <span x-text="resolvedProfile.followers?.totalItems || '?'"></span></span>
+              <span>Following: <span x-text="resolvedProfile.following?.totalItems || '?'"></span></span>
+              <span>Outbox: <span x-text="resolvedProfile.outbox?.totalItems || '?'"></span></span>
+            </div>
+            <div style="margin-top:1rem;display:flex;gap:0.5rem;">
+              <template x-if="isLoggedIn">
+                <button @click="follow()" class="btn btn-follow" :disabled="followSent">
+                  <span x-text="followSent ? '✓ Request Sent' : 'Follow'"></span>
+                </button>
+              </template>
+              <template x-if="!isLoggedIn">
+                <span style="color:var(--text-muted);font-size:0.85rem;">Login to follow</span>
+              </template>
+              <button @click="showInspector = !showInspector" class="btn btn-secondary btn-sm">
+                <span x-text="showInspector ? 'Hide' : 'Show'"></span> ActivityPub JSON
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ActivityPub Inspector -->
+        <template x-if="showInspector">
+          <div class="json-inspector" style="margin-top:1rem;">
+            <pre x-html="formatJson(resolvedProfile)"></pre>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- How Federation Works -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">How Federation Works</span>
+      </div>
+      <div style="color:var(--text-secondary);font-size:0.9rem;">
+        <ol style="padding-left:1.2rem;line-height:2;">
+          <li>You enter <code>@alice@mastodon.social</code> in the search box</li>
+          <li>Open Pace sends a <strong>WebFinger</strong> query to resolve the address</li>
+          <li>WebFinger returns the actor profile URL on the remote server</li>
+          <li>The profile is fetched directly from the remote instance</li>
+          <li>Click <strong>Follow</strong> to send a Follow activity to their inbox</li>
+          <li>Alice's activities now appear in your feed!</li>
+        </ol>
+        <div class="federation-flow" style="margin-top:1rem;">
+          <div class="flow-step"><div class="flow-icon">🔍</div><div class="flow-label">WebFinger</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step"><div class="flow-icon">👤</div><div class="flow-label">Resolve Profile</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step"><div class="flow-icon">📡</div><div class="flow-label">Send Follow</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step"><div class="flow-icon">📰</div><div class="flow-label">Activities in Feed</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <template x-if="showLogin">
+    <div class="modal-overlay" @click.self="showLogin=false">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Login</h3>
+          <button class="modal-close" @click="showLogin=false">&times;</button>
+        </div>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" class="form-input" x-model="loginUser" placeholder="username">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" class="form-input" x-model="loginPass" placeholder="password">
+        </div>
+        <template x-if="loginError">
+          <p style="color:var(--accent-red);font-size:0.85rem;margin-bottom:1rem;" x-text="loginError"></p>
+        </template>
+        <button @click="doLogin()" class="btn btn-primary" style="width:100%;">Login</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Register Modal -->
+  <template x-if="showRegister">
+    <div class="modal-overlay" @click.self="showRegister=false">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Register</h3>
+          <button class="modal-close" @click="showRegister=false">&times;</button>
+        </div>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" class="form-input" x-model="regUser" placeholder="username">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" class="form-input" x-model="regEmail" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" class="form-input" x-model="regPass" placeholder="min 6 characters">
+        </div>
+        <template x-if="regError">
+          <p style="color:var(--accent-red);font-size:0.85rem;margin-bottom:1rem;" x-text="regError"></p>
+        </template>
+        <button @click="doRegister()" class="btn btn-primary" style="width:100%;">Register</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    function discoverApp() {
+      return {
+        isLoggedIn: false,
+        username: '',
+        searchInput: '',
+        searching: false,
+        searchError: '',
+        resolvedProfile: null,
+        showInspector: false,
+        followSent: false,
+        showLogin: false,
+        showRegister: false,
+        loginUser: '', loginPass: '', loginError: '',
+        regUser: '', regEmail: '', regPass: '', regError: '',
+
+        init() {
+          this.isLoggedIn = OpenPaceApi.isAuthenticated();
+          this.username = OpenPaceApi.getUsername() || '';
+        },
+
+        async search() {
+          const parsed = Federation.parseWebFinger(this.searchInput);
+          if (!parsed) {
+            this.searchError = 'Invalid format. Use @user@domain (e.g., @alice@mastodon.social)';
+            return;
+          }
+
+          this.searching = true;
+          this.searchError = '';
+          this.resolvedProfile = null;
+
+          try {
+            const actorUrl = await Federation.resolveWebFinger(parsed.user, parsed.domain);
+            if (!actorUrl) {
+              this.searchError = `No actor found for @${parsed.user}@${parsed.domain}`;
+              return;
+            }
+
+            const profile = await Federation.fetchActorProfile(actorUrl);
+            if (!profile) {
+              this.searchError = 'Could not fetch actor profile from remote server.';
+              return;
+            }
+
+            this.resolvedProfile = profile;
+          } catch (e) {
+            this.searchError = 'WebFinger resolution failed: ' + e.message;
+          } finally {
+            this.searching = false;
+          }
+        },
+
+        getInstanceDomain(url) {
+          return Federation.getInstanceDomain(url) || 'unknown';
+        },
+
+        formatJson(obj) {
+          return Federation.formatActivityPubJson(obj);
+        },
+
+        async follow() {
+          if (!this.resolvedProfile) return;
+          try {
+            await OpenPaceApi.followRemote(this.resolvedProfile.id, this.username);
+            this.followSent = true;
+          } catch (e) {
+            alert('Follow failed: ' + e.message);
+          }
+        },
+
+        async doLogin() {
+          this.loginError = '';
+          try {
+            OpenPaceApi.setCredentials(this.loginUser, this.loginPass);
+            await OpenPaceApi.me();
+            this.isLoggedIn = true;
+            this.username = this.loginUser;
+            this.showLogin = false;
+          } catch (e) {
+            this.loginError = 'Invalid credentials';
+            OpenPaceApi.clearCredentials();
+          }
+        },
+
+        async doRegister() {
+          this.regError = '';
+          try {
+            await OpenPaceApi.register(this.regUser, this.regPass, this.regEmail);
+            OpenPaceApi.setCredentials(this.regUser, this.regPass);
+            this.isLoggedIn = true;
+            this.username = this.regUser;
+            this.showRegister = false;
+          } catch (e) {
+            this.regError = e.message || 'Registration failed';
+          }
+        },
+
+        logout() {
+          OpenPaceApi.clearCredentials();
+          this.isLoggedIn = false;
+          this.username = '';
+        }
+      };
+    }
+  </script>
+</body>
+</html>

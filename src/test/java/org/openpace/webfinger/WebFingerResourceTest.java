@@ -82,22 +82,22 @@ class WebFingerResourceTest {
     }
 
     @Test
-    void shouldReturn404WhenResourceNotAcctScheme() {
+    void shouldReturn400WhenResourceNotAcctScheme() {
         given()
             .queryParam("resource", "https://localhost:8080/users/alice")
         .when()
             .get("/.well-known/webfinger")
         .then()
-            .statusCode(404);
+            .statusCode(400);
     }
 
     @Test
-    void shouldReturn404ForMalformedAcctUri() {
+    void shouldReturn400ForMalformedAcctUri() {
         given()
             .queryParam("resource", "acct:wf-bob")
         .when()
             .get("/.well-known/webfinger")
         .then()
-            .statusCode(404);
+            .statusCode(400);
     }
 }

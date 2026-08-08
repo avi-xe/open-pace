@@ -74,10 +74,30 @@
             <artifactId>vertx-web-client</artifactId>
         </dependency>
 
+        <!-- GPX Parsing -->
+        <dependency>
+            <groupId>io.jenetics</groupId>
+            <artifactId>jpx</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+
+        <!-- Geometry Types (for track calculations) -->
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <version>1.18.2</version>
+        </dependency>
+
         <!-- API Documentation (for /api/* endpoints) -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+
+        <!-- Security (Basic Auth + BCrypt) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-security-jpa</artifactId>
         </dependency>
 
         <!-- Testing -->

@@ -25,12 +25,23 @@ import jakarta.inject.Inject;
 import jakarta.transaction.UserTransaction;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.openpace.auth.User;
 
 @QuarkusTest
 class OutboxResourceTest {
 
     @Inject
     UserTransaction tx;
+
+    private void registerUser(String username, String password) throws Exception {
+        given()
+            .contentType("application/json")
+            .body("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}")
+        .when()
+            .post("/api/auth/register")
+        .then()
+            .statusCode(201);
+    }
 
     @Test
     void shouldReturnOutboxCollection() throws Exception {
@@ -52,10 +63,7 @@ class OutboxResourceTest {
 
     @Test
     void shouldAcceptCreateActivity() throws Exception {
-        tx.begin();
-        Actor actor = new Actor("outbox-bob", "Bob");
-        actor.persist();
-        tx.commit();
+        registerUser("outbox-bob", "password123");
 
         Map<String, Object> activity = Map.of(
             "type", "Create",
@@ -67,16 +75,19 @@ class OutboxResourceTest {
 
         given()
             .contentType("application/activity+json")
+            .auth().basic("outbox-bob", "password123")
             .body(activity)
         .when()
             .post("/users/outbox-bob/outbox")
         .then()
-            .statusCode(202)
+            .statusCode(201)
             .body("id", notNullValue());
     }
 
     @Test
-    void shouldReturn404ForNonexistentActor() {
+    void shouldReturn403ForWrongUser() throws Exception {
+        registerUser("outbox-ghost", "password123");
+
         Map<String, Object> activity = Map.of(
             "type", "Create",
             "object", Map.of(
@@ -85,17 +96,21 @@ class OutboxResourceTest {
             )
         );
 
+        // Authenticated as outbox-ghost but posting to outbox-nonexistent — 403
         given()
             .contentType("application/activity+json")
+            .auth().basic("outbox-ghost", "password123")
             .body(activity)
         .when()
             .post("/users/outbox-nonexistent/outbox")
         .then()
-            .statusCode(404);
+            .statusCode(403);
     }
 
     @Test
-    void shouldReturn400WhenTypeMissing() {
+    void shouldReturn400WhenTypeMissing() throws Exception {
+        registerUser("outbox-notype", "password123");
+
         Map<String, Object> activity = Map.of(
             "object", Map.of(
                 "type", "Note",
@@ -105,9 +120,10 @@ class OutboxResourceTest {
 
         given()
             .contentType("application/activity+json")
+            .auth().basic("outbox-notype", "password123")
             .body(activity)
         .when()
-            .post("/users/outbox-alice/outbox")
+            .post("/users/outbox-notype/outbox")
         .then()
             .statusCode(400);
     }

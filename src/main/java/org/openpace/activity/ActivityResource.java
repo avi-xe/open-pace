@@ -16,6 +16,7 @@
 package org.openpace.activity;
 
 import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.shared.ErrorResponse;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -47,7 +48,9 @@ public class ActivityResource {
         // activityId could be a database ID or an ActivityPub URL
         Activity activity = Activity.findByActivityId(activityId);
         if (activity == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTIVITY_NOT_FOUND", "Activity '" + activityId + "' not found"))
+                .build();
         }
 
         LOG.info("Returning activity: " + activityId);

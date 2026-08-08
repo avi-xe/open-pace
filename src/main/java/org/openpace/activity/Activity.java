@@ -28,6 +28,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -42,11 +44,14 @@ public class Activity extends PanacheEntityBase {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_id", nullable = false)
+    @NotNull(message = "Actor is required")
     public Actor actor;
 
+    @NotBlank(message = "Activity type is required")
     @Column(name = "activity_type", nullable = false, length = 50)
     public String activityType;
 
+    @NotBlank(message = "Activity ID is required")
     @Column(name = "activity_id", nullable = false, unique = true, length = 500)
     public String activityId;
 
@@ -59,12 +64,36 @@ public class Activity extends PanacheEntityBase {
     @Column(name = "object_id", length = 500)
     public String objectId;
 
+    @NotNull(message = "Published date is required")
     @Column(name = "published_at", nullable = false)
     public LocalDateTime publishedAt;
 
     @Column(name = "object_json")
     @JdbcTypeCode(SqlTypes.JSON)
     public JsonNode objectJson;
+
+    /**
+     * Raw GPX XML data, stored for re-export and re-parsing.
+     */
+    @Column(name = "gpx_data", columnDefinition = "TEXT")
+    public String gpxData;
+
+    /**
+     * Parsed track data as JSONB.
+     * Structure: { "points": [{lat, lon, ele, time, speed}], "summary": {...} }
+     */
+    @Column(name = "track_data")
+    @JdbcTypeCode(SqlTypes.JSON)
+    public JsonNode trackData;
+
+    /**
+     * Visibility level: public, unlisted, or private.
+     * - public: visible everywhere, federated to followers
+     * - unlisted: visible on profile, not in public timelines, not federated
+     * - private: only visible to the owner
+     */
+    @Column(name = "visibility", nullable = false, length = 20)
+    public String visibility = "public";
 
     @Column(name = "created_at")
     public LocalDateTime createdAt;

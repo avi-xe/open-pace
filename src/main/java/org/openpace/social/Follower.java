@@ -28,6 +28,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -49,9 +50,11 @@ public class Follower extends PanacheEntityBase {
     @JoinColumn(name = "follower_actor_id")
     public Actor followerActor;
 
+    @NotBlank(message = "Follower actor URL is required")
     @Column(name = "follower_actor_url", nullable = false, length = 500)
     public String followerActorUrl;
 
+    @NotBlank(message = "Follower inbox URL is required")
     @Column(name = "follower_inbox", nullable = false, length = 500)
     public String followerInbox;
 

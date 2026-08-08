@@ -69,18 +69,11 @@ public class ActivityPubModels {
         public String preferredUsername;
         public String name;
         public String summary;
-        public Inbox inbox;
+        public String inbox;
         public String outbox;
-        public Map<String, String> followers;
-        public Map<String, String> following;
+        public String followers;
+        public String following;
         public String publicKey;
-
-        @JsonInclude(JsonInclude.Include.NON_NULL)
-        public static class Inbox {
-            public String type;
-            public String totalItems;
-            public boolean first;
-        }
     }
 
     /**
@@ -141,6 +134,7 @@ public class ActivityPubModels {
         public String totalItems;
         public String first;
         public String last;
+        public List<String> orderedItems;
     }
 
     /**

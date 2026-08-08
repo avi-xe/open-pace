@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Activity — Open Pace</title>
+  <link rel="stylesheet" href="/app/css/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="/app/js/api.js"></script>
+  <script src="/app/js/federation.js"></script>
+</head>
+<body x-data="newActivityApp()" x-init="init()">
+
+  <nav class="nav">
+    <div class="nav-brand">🏃 Open<span>Pace</span></div>
+    <div class="nav-links">
+      <a href="/app/">Universe</a>
+      <a href="/app/discover.html">Discover</a>
+      <a href="/app/feed.html">Feed</a>
+      <a href="/app/new.html" class="active">New Activity</a>
+      <a href="/app/leaderboards.html">Leaderboards</a>
+    </div>
+    <div class="nav-auth">
+      <template x-if="isLoggedIn">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <a :href="'/app/profile.html?user=' + username" x-text="username" style="color:var(--accent-green);"></a>
+          <button @click="logout()" class="btn btn-secondary btn-sm">Logout</button>
+        </div>
+      </template>
+      <template x-if="!isLoggedIn">
+        <a href="/app/discover.html" class="btn btn-primary btn-sm">Login</a>
+      </template>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>➕ New Activity</h1>
+      <p>Create an activity and share it across the fediverse.</p>
+    </div>
+
+    <!-- Auth Required -->
+    <template x-if="!isLoggedIn">
+      <div class="card" style="text-align:center;padding:3rem;">
+        <p style="margin-bottom:1rem;color:var(--text-secondary);">You need to login to create activities.</p>
+        <a href="/app/discover.html" class="btn btn-primary">Login / Register</a>
+      </div>
+    </template>
+
+    <template x-if="isLoggedIn">
+      <div class="grid-2">
+        <!-- Form -->
+        <div>
+          <div class="card">
+            <h3 style="margin-bottom:1rem;">Activity Details</h3>
+
+            <div class="form-group">
+              <label>Activity Type</label>
+              <select class="form-input" x-model="activityType">
+                <option value="Run">🏃 Run</option>
+                <option value="Ride">🚴 Ride</option>
+                <option value="Swim">🏊 Swim</option>
+                <option value="Walk">🚶 Walk</option>
+                <option value="Hike">🥾 Hike</option>
+                <option value="Note">📝 Note</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" class="form-input" x-model="activityName" placeholder="Morning Run">
+            </div>
+
+            <div class="form-group">
+              <label>Description (optional)</label>
+              <textarea class="form-input" x-model="activityContent" rows="3"
+                        placeholder="How did it go?"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Visibility</label>
+              <select class="form-input" x-model="visibility">
+                <option value="public">Public — Visible to all</option>
+                <option value="unlisted">Unlisted — Visible via link</option>
+                <option value="private">Private — Only you</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>GPX File (optional)</label>
+              <input type="file" accept=".gpx,.xml" @change="handleGpxFile($event)" class="form-input">
+              <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.25rem;">
+                Upload a GPX file for route data
+              </p>
+            </div>
+
+            <button @click="submit()" class="btn btn-primary" style="width:100%;"
+                    :disabled="submitting">
+              <span x-text="submitting ? 'Creating...' : 'Create Activity'"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Preview & Federation Flow -->
+        <div>
+          <!-- Preview -->
+          <div class="card" style="margin-bottom:1rem;">
+            <h3 style="margin-bottom:1rem;">Preview</h3>
+            <div class="activity-card" style="margin:0;">
+              <div class="activity-header">
+                <div class="activity-author">
+                  <div class="activity-avatar" x-text="username[0]?.toUpperCase()"></div>
+                  <strong x-text="username"></strong>
+                </div>
+                <span class="badge badge-type" x-text="activityType"></span>
+              </div>
+              <div class="activity-meta">
+                <span x-text="activityName || 'Untitled Activity'"></span>
+              </div>
+              <template x-if="gpxPreview">
+                <div class="activity-meta" style="margin-top:0.5rem;">
+                  <span>📏 <span x-text="gpxPreview.distance || '?'"></span></span>
+                  <span>📍 <span x-text="(gpxPreview.points || 0) + ' points'"></span></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Federation Flow -->
+          <div class="card">
+            <h3 style="margin-bottom:1rem;">📡 Federation Flow</h3>
+            <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem;">
+              After posting, your activity will be delivered to:
+            </p>
+            <div class="federation-flow">
+              <div class="flow-step"><div class="flow-icon">📝</div><div class="flow-label">You</div></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><div class="flow-icon">📦</div><div class="flow-label">Outbox</div></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><div class="flow-icon">📡</div><div class="flow-label">Followers</div></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><div class="flow-icon">🌐</div><div class="flow-label">Instances</div></div>
+            </div>
+            <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.75rem;">
+              ActivityPub delivers your activity to followers' inboxes on their home servers.
+            </p>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Success Modal -->
+    <template x-if="showSuccess">
+      <div class="modal-overlay" @click.self="showSuccess=false">
+        <div class="modal" style="text-align:center;">
+          <div style="font-size:3rem;margin-bottom:1rem;">✅</div>
+          <h3>Activity Created!</h3>
+          <p style="color:var(--text-secondary);margin:1rem 0;">
+            Your activity has been posted and is being delivered to followers' inboxes.
+          </p>
+          <div class="federation-flow" style="margin:1rem 0;">
+            <div class="flow-step"><div class="flow-icon">✅</div><div class="flow-label">Created</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step"><div class="flow-icon">📡</div><div class="flow-label">Delivering</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step"><div class="flow-icon">🌐</div><div class="flow-label">Federated</div></div>
+          </div>
+          <div style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;">
+            <a href="/app/feed.html" class="btn btn-primary">View Feed</a>
+            <button @click="resetForm()" class="btn btn-secondary">Create Another</button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    function newActivityApp() {
+      return {
+        isLoggedIn: false,
+        username: '',
+        activityType: 'Run',
+        activityName: '',
+        activityContent: '',
+        visibility: 'public',
+        gpxFile: null,
+        gpxPreview: null,
+        submitting: false,
+        showSuccess: false,
+
+        init() {
+          this.isLoggedIn = OpenPaceApi.isAuthenticated();
+          this.username = OpenPaceApi.getUsername() || '';
+        },
+
+        handleGpxFile(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          this.gpxFile = file;
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const parser = new DOMParser();
+              const xml = parser.parseFromString(e.target.result, 'text/xml');
+              const points = xml.querySelectorAll('trkpt');
+              let totalDist = 0;
+              const coords = [];
+              points.forEach((pt, i) => {
+                const lat = parseFloat(pt.getAttribute('lat'));
+                const lon = parseFloat(pt.getAttribute('lon'));
+                coords.push({ lat, lon });
+                if (i > 0) {
+                  totalDist += haversine(coords[i-1], coords[i]);
+                }
+              });
+              this.gpxPreview = {
+                points: points.length,
+                distance: (totalDist / 1000).toFixed(2) + ' km'
+              };
+            } catch (err) {
+              console.warn('GPX parse error:', err);
+            }
+          };
+          reader.readAsText(file);
+        },
+
+        async submit() {
+          if (!this.activityName.trim()) {
+            alert('Please enter an activity name.');
+            return;
+          }
+
+          this.submitting = true;
+          try {
+            // Build ActivityPub Create activity
+            const activity = {
+              '@context': 'https://www.w3.org/ns/activitystreams',
+              'type': 'Create',
+              'object': {
+                'type': this.activityType === 'Note' ? 'Note' : 'Object',
+                'name': this.activityName,
+                'content': this.activityContent || this.activityName,
+                'objectType': this.activityType
+              }
+            };
+
+            await OpenPaceApi.postToOutbox(this.username, activity);
+            this.showSuccess = true;
+          } catch (e) {
+            alert('Failed to create activity: ' + e.message);
+          } finally {
+            this.submitting = false;
+          }
+        },
+
+        resetForm() {
+          this.showSuccess = false;
+          this.activityName = '';
+          this.activityContent = '';
+          this.gpxFile = null;
+          this.gpxPreview = null;
+        },
+
+        logout() {
+          OpenPaceApi.clearCredentials();
+          this.isLoggedIn = false;
+          this.username = '';
+        }
+      };
+    }
+
+    function haversine(p1, p2) {
+      const R = 6371000;
+      const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+      const dLon = (p2.lon - p1.lon) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 +
+        Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+        Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+  </script>
+</body>
+</html>

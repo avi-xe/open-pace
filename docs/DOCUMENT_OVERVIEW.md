@@ -22,6 +22,14 @@ This document explains the purpose and relationship between the main documentati
 - It covers the "what", "why", and "how" in one comprehensive document
 - Read IMPLEMENTATION_STRATEGY.md to understand the approach and workflow
 
+## User-Facing
+
+### docs/FAQ.md
+**Purpose**: End-to-end user journeys answering common questions  
+**Audience**: Users, tutorial readers, new contributors  
+**Content**: Step-by-step walkthroughs covering account creation, activity posting, map viewing, and API usage  
+**Think of it as**: The "how do I actually use this?" reference
+
 ## Quality & Consistency
 
 ### CONSISTENCY_CHECKLIST.md
@@ -165,8 +173,9 @@ This document explains the purpose and relationship between the main documentati
 
 **Getting started**:
 1. `README.md` - Project overview
-2. `docs/PROJECT_SETUP.md` - Environment setup
-3. `docs/part-1-basic-activitypub.md` - Start tutorial
+2. `docs/FAQ.md` - End-to-end user journeys
+3. `docs/PROJECT_SETUP.md` - Environment setup
+4. `docs/part-1-basic-activitypub.md` - Start tutorial
 
 **Understanding concepts**:
 - `docs/ACTIVITYPUB_REFERENCE.md` - ActivityPub concepts
@@ -184,6 +193,8 @@ Implementation
 SPRINT_TEMPLATE.md (Documentation)
     ↓
 CONSISTENCY_CHECKLIST.md (Review)
+
+FAQ.md (User Journeys — cut from implementation)
 ```
 
 ## Summary
