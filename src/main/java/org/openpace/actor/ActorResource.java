@@ -26,6 +26,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response;
 import java.util.logging.Logger;
 
 /**
@@ -54,5 +55,30 @@ public class ActorResource {
         LOG.info("Returning actor profile for: " + username);
         ActivityPubModels.Actor model = modelBuilder.buildActor(actor);
         return Response.ok(model).build();
+    }
+
+    /**
+     * Get the actor's public key for HTTP Signature verification.
+     * Used by remote servers to verify our signed requests.
+     */
+    @GET
+    @Path("/public-key")
+    @Produces(MediaType.TEXT_PLAIN)
+    public Response getPublicKey(@PathParam("username") String username) {
+        Actor actor = Actor.findByUsername(username);
+        if (actor == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found"))
+                .build();
+        }
+
+        if (actor.publicKey == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("NO_KEY", "Actor '" + username + "' has no public key"))
+                .build();
+        }
+
+        LOG.info("Returning public key for: " + username);
+        return Response.ok(actor.publicKey).build();
     }
 }
