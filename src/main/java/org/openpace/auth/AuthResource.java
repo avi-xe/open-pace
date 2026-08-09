@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 import org.openpace.actor.Actor;
 import org.openpace.shared.ErrorResponse;
+import org.openpace.shared.RsaKeyUtils;
 
 /**
  * REST endpoints for user authentication.
@@ -94,9 +95,12 @@ public class AuthResource {
         user.persist();
         LOG.info("Created user: " + user.username);
 
-        // Create linked actor
+        // Create linked actor with RSA key pair for federation
         Actor actor = new Actor(username, username);
         actor.userId = user.id;
+        java.security.KeyPair keyPair = RsaKeyUtils.generateKeyPair();
+        actor.publicKey = RsaKeyUtils.publicKeyToPem(keyPair.getPublic());
+        actor.privateKey = RsaKeyUtils.privateKeyToPem(keyPair.getPrivate());
         actor.persist();
         LOG.info("Created actor for user: " + username);
 

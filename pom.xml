@@ -107,6 +107,13 @@
             <artifactId>quarkus-security-jpa</artifactId>
         </dependency>
 
+        <!-- HTTP Signatures (for ActivityPub federation) -->
+        <dependency>
+            <groupId>org.tomitribe</groupId>
+            <artifactId>tomitribe-http-signatures</artifactId>
+            <version>1.5</version>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>io.quarkus</groupId>

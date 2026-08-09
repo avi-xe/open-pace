@@ -147,7 +147,7 @@ public class OutboxResource {
 
             List<Follower> followers = Follower.findByActor(dbActivity.actor);
             for (Follower follower : followers) {
-                federationDeliveryService.deliver(follower.followerInbox, activityJsonStr);
+                federationDeliveryService.deliver(follower.followerInbox, activityJsonStr, dbActivity.actor);
             }
         } catch (Exception e) {
             LOG.warning("Failed to deliver activity to followers: " + e.getMessage());
