@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Open Pace
+ * Copyright 2024 Open Pace Contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,53 +21,67 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
-import io.quarkus.elytron.security.common.BcryptUtil;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.quarkus.security.jpa.Password;
-import io.quarkus.security.jpa.Roles;
-import io.quarkus.security.jpa.UserDefinition;
-import io.quarkus.security.jpa.Username;
 
+/**
+ * Local user entity. Authentication is handled externally via OIDC.
+ * This entity stores the local account info linked to one or more
+ * ExternalIdentity records.
+ */
 @Entity
 @Table(name = "users")
-@UserDefinition
 public class User extends PanacheEntity {
 
-    @Username
     @Column(unique = true, nullable = false)
     public String username;
-
-    @Password
-    @Column(nullable = false)
-    public String password;
 
     @Column
     public String email;
 
+    @Column(name = "display_name")
+    public String displayName;
+
     @Column(nullable = false)
     public Boolean verified = true;
 
-    @Roles
     @Column(nullable = false, length = 50)
     public String role = "user";
 
     @Column(name = "created_at")
     public LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    public LocalDateTime updatedAt;
+
     public User() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * Find a user by username.
+     */
     public static User findByUsername(String username) {
         return find("username", username).firstResult();
     }
 
-    public static User create(String username, String plainPassword, String role) {
+    /**
+     * Find a user by email.
+     */
+    public static User findByEmail(String email) {
+        return find("email", email).firstResult();
+    }
+
+    /**
+     * Create a new user from OIDC claims. Does not persist — caller must persist.
+     */
+    public static User createFromOidc(String username, String email, String displayName) {
         User user = new User();
         user.username = username;
-        user.password = BcryptUtil.bcryptHash(plainPassword);
-        user.role = role;
-        user.persist();
+        user.email = email;
+        user.displayName = displayName;
+        user.verified = true;
+        user.role = "user";
         return user;
     }
 }

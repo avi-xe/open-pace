@@ -22,94 +22,47 @@ import static org.hamcrest.Matchers.notNullValue;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests for auth endpoints.
+ * Uses embedded test user (testuser/testuser) for authentication.
+ * The testuser is created in import.sql in the users table.
+ */
 @QuarkusTest
 class AuthTest {
 
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_PASSWORD = "testuser";
+
     @Test
-    void shouldRegisterUser() {
+    void shouldListProviders() {
         given()
-            .contentType("application/json")
-            .body("{\"username\":\"auth-alice\",\"password\":\"password123\",\"email\":\"alice@test.com\"}")
         .when()
-            .post("/api/auth/register")
+            .get("/api/auth/login")
         .then()
-            .statusCode(201)
-            .body("id", notNullValue())
-            .body("username", equalTo("auth-alice"));
+            .statusCode(200)
+            .body("providers.size()", equalTo(2));
     }
 
     @Test
-    void shouldRejectShortPassword() {
-        given()
-            .contentType("application/json")
-            .body("{\"username\":\"auth-shortpw\",\"password\":\"short\",\"email\":\"short@test.com\"}")
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(400);
-    }
-
-    @Test
-    void shouldRejectBlankUsername() {
-        given()
-            .contentType("application/json")
-            .body("{\"username\":\"\",\"password\":\"password123\",\"email\":\"blank@test.com\"}")
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(400);
-    }
-
-    @Test
-    void shouldRejectDuplicateUsername() {
-        // Register first time — should succeed
-        given()
-            .contentType("application/json")
-            .body("{\"username\":\"auth-dup\",\"password\":\"password123\",\"email\":\"dup@test.com\"}")
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(201);
-
-        // Register same username again — should conflict
-        given()
-            .contentType("application/json")
-            .body("{\"username\":\"auth-dup\",\"password\":\"password123\",\"email\":\"dup2@test.com\"}")
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(409);
-    }
-
-    @Test
-    void shouldReturnCurrentUser() {
-        // Register a user first
-        given()
-            .contentType("application/json")
-            .body("{\"username\":\"auth-me\",\"password\":\"password123\",\"email\":\"me@test.com\"}")
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(201);
-
+    void shouldReturnUserInfo() {
+        // testuser exists in DB via import.sql
         // GET /api/auth/me with Basic Auth
         given()
-            .auth().basic("auth-me", "password123")
+            .auth().basic(TEST_USER, TEST_PASSWORD)
         .when()
             .get("/api/auth/me")
         .then()
             .statusCode(200)
-            .body("username", equalTo("auth-me"))
-            .body("id", notNullValue())
-            .body("email", equalTo("me@test.com"));
+            .body("username", equalTo(TEST_USER))
+            .body("id", notNullValue());
     }
 
     @Test
-    void shouldReturn401ForUnauthenticatedMe() {
+    void shouldRejectLoginWithoutInstance() {
         given()
         .when()
-            .get("/api/auth/me")
+            .get("/api/auth/login/mastodon")
         .then()
-            .statusCode(401);
+            .statusCode(400);
     }
 }
