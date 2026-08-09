@@ -15,119 +15,86 @@
  */
 package org.openpace.auth;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.security.identity.SecurityIdentity;
+import java.util.Map;
+
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.Map;
-import java.util.logging.Logger;
-import org.openpace.actor.Actor;
+
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.openpace.shared.ErrorResponse;
+
+import io.quarkus.security.Authenticated;
+import io.quarkus.security.identity.SecurityIdentity;
 
 /**
  * REST endpoints for user authentication.
+ *
+ * With OIDC, authentication is handled by the OIDC provider.
+ * This resource provides:
+ * - GET /api/auth/me → current user info from OIDC token
  */
 @Path("/api/auth")
 public class AuthResource {
-
-    private static final Logger LOG = Logger.getLogger(AuthResource.class.getName());
-
-    @Inject
-    ObjectMapper objectMapper;
 
     @Inject
     SecurityIdentity securityIdentity;
 
     /**
-     * Register a new user and create a linked Actor.
-     */
-    @POST
-    @Path("/register")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    @Transactional
-    public Response register(JsonNode body) {
-        String username = body.has("username") ? body.get("username").asText().trim() : "";
-        String password = body.has("password") ? body.get("password").asText() : "";
-        String email = body.has("email") && !body.get("email").isNull()
-                ? body.get("email").asText().trim() : null;
-
-        // Validate username
-        if (username.isBlank()) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("VALIDATION_ERROR", "Username must not be blank"))
-                    .build();
-        }
-
-        // Validate password length
-        if (password.length() < 8) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("VALIDATION_ERROR", "Password must be at least 8 characters"))
-                    .build();
-        }
-
-        // Check username uniqueness in User table
-        if (User.findByUsername(username) != null) {
-            return Response.status(Response.Status.CONFLICT)
-                    .entity(new ErrorResponse("DUPLICATE_USERNAME", "Username '" + username + "' is already taken"))
-                    .build();
-        }
-
-        // Check username uniqueness in Actor table
-        if (Actor.findByUsername(username) != null) {
-            return Response.status(Response.Status.CONFLICT)
-                    .entity(new ErrorResponse("DUPLICATE_USERNAME", "Username '" + username + "' is already taken"))
-                    .build();
-        }
-
-        // Create user with hashed password
-        User user = User.create(username, password, "user");
-        user.email = email;
-        user.persist();
-        LOG.info("Created user: " + user.username);
-
-        // Create linked actor
-        Actor actor = new Actor(username, username);
-        actor.userId = user.id;
-        actor.persist();
-        LOG.info("Created actor for user: " + username);
-
-        return Response.status(Response.Status.CREATED)
-                .entity(Map.of("id", user.id, "username", user.username))
-                .build();
-    }
-
-    /**
-     * Get current authenticated user info.
+     * Get current authenticated user info from the OIDC token.
+     * This endpoint triggers the OIDC Authorization Code flow
+     * if the user is not authenticated.
      */
     @GET
     @Path("/me")
     @Produces(MediaType.APPLICATION_JSON)
+    @Authenticated
     @Transactional
-    @jakarta.annotation.security.RolesAllowed("user")
     public Response me() {
-        String username = securityIdentity.getPrincipal().getName();
+        // Extract username from OIDC token or session
+        String username = extractUsername();
+        if (username == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("UNAUTHORIZED", "Not authenticated"))
+                .build();
+        }
 
         User user = User.findByUsername(username);
         if (user == null) {
             return Response.status(Response.Status.NOT_FOUND)
-                    .entity(new ErrorResponse("USER_NOT_FOUND", "User '" + username + "' not found"))
-                    .build();
+                .entity(new ErrorResponse("USER_NOT_FOUND", "User '" + username + "' not found"))
+                .build();
         }
 
         return Response.ok(Map.of(
                 "id", user.id,
                 "username", user.username,
                 "email", user.email != null ? user.email : "",
+                "display_name", user.displayName != null ? user.displayName : "",
                 "role", user.role
         )).build();
+    }
+
+    /**
+     * Extract the username from the security identity.
+     * For OIDC, this comes from the token's preferred_username or sub claim.
+     */
+    private String extractUsername() {
+        // Try JWT claims first
+        if (securityIdentity.getPrincipal()instanceof JsonWebToken jwt) {
+            // Prefer preferred_username (OIDC standard claim)
+            String preferredUsername = jwt.getClaim("preferred_username");
+            if (preferredUsername != null) {
+                return preferredUsername;
+            }
+            // Fall back to sub (OIDC subject identifier)
+            return jwt.getSubject();
+        }
+        // Fall back to principal name
+        return securityIdentity.getPrincipal().getName();
     }
 }

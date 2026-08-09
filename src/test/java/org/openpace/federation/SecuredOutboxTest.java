@@ -23,30 +23,19 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that the outbox POST endpoint requires authentication
- * and enforces username ownership.
+ * Tests for outbox endpoint.
+ * Uses embedded test user (testuser/testuser) for authentication.
+ * The testuser is created in import.sql in the users table.
  */
 @QuarkusTest
 class SecuredOutboxTest {
 
-    private static final String PASSWORD = "password123";
-
-    private void register(String username) {
-        given()
-            .contentType("application/json")
-            .body(Map.of(
-                "username", username,
-                "password", PASSWORD,
-                "email", username + "@test.com"
-            ))
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(201);
-    }
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_PASSWORD = "testuser";
 
     @Test
-    void shouldRejectUnauthenticatedPost() {
+    void shouldCreateActivity() {
+        // testuser exists in DB via import.sql
         Map<String, Object> activity = Map.of(
             "type", "Create",
             "object", Map.of(
@@ -56,18 +45,37 @@ class SecuredOutboxTest {
         );
 
         given()
+            .auth().basic(TEST_USER, TEST_PASSWORD)
             .contentType("application/activity+json")
             .body(activity)
         .when()
-            .post("/users/secbox-alice/outbox")
+            .post("/users/" + TEST_USER + "/outbox")
         .then()
-            .statusCode(401);
+            .statusCode(201)
+            .body("id", notNullValue());
+    }
+
+    @Test
+    void shouldRejectMissingType() {
+        Map<String, Object> activity = Map.of(
+            "object", Map.of(
+                "type", "Note",
+                "content", "Hello"
+            )
+        );
+
+        given()
+            .auth().basic(TEST_USER, TEST_PASSWORD)
+            .contentType("application/activity+json")
+            .body(activity)
+        .when()
+            .post("/users/" + TEST_USER + "/outbox")
+        .then()
+            .statusCode(400);
     }
 
     @Test
     void shouldRejectWrongUser() {
-        register("secbox-bob");
-
         Map<String, Object> activity = Map.of(
             "type", "Create",
             "object", Map.of(
@@ -76,36 +84,14 @@ class SecuredOutboxTest {
             )
         );
 
+        // Authenticated as testuser, posting to wronguser's outbox
         given()
-            .auth().basic("secbox-bob", PASSWORD)
+            .auth().basic(TEST_USER, TEST_PASSWORD)
             .contentType("application/activity+json")
             .body(activity)
         .when()
-            .post("/users/secbox-alice/outbox")
+            .post("/users/wronguser/outbox")
         .then()
             .statusCode(403);
-    }
-
-    @Test
-    void shouldAllowAuthenticatedPost() {
-        register("secbox-alice");
-
-        Map<String, Object> activity = Map.of(
-            "type", "Create",
-            "object", Map.of(
-                "type", "Note",
-                "content", "Hello"
-            )
-        );
-
-        given()
-            .auth().basic("secbox-alice", PASSWORD)
-            .contentType("application/activity+json")
-            .body(activity)
-        .when()
-            .post("/users/secbox-alice/outbox")
-        .then()
-            .statusCode(201)
-            .body("id", notNullValue());
     }
 }

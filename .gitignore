@@ -70,3 +70,4 @@ hs_err_pid*
 replay_pid*
 # Local Pi runtime state
 .atl/
+META-INF/

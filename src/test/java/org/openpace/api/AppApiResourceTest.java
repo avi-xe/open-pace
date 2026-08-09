@@ -21,33 +21,42 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
+import jakarta.transaction.UserTransaction;
 import org.junit.jupiter.api.Test;
+import org.openpace.actor.Actor;
+import org.openpace.auth.User;
 
 /**
  * Tests for the application-friendly JSON API endpoints.
+ * Uses embedded test user (testuser/testuser) for authentication.
  */
 @QuarkusTest
 class AppApiResourceTest {
 
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_PASSWORD = "testuser";
+
+    @Inject
+    UserTransaction tx;
+
     /**
-     * Register a test user and return credentials for authenticated requests.
+     * Create a user and actor directly in the DB.
      */
-    private String registerUser(String username) {
-        String body = "{\"username\":\"" + username + "\",\"password\":\"password123\",\"email\":\"" + username + "@test.com\"}";
-        given()
-            .contentType(ContentType.JSON)
-            .body(body)
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(201);
-        return username;
+    private void createUser(String username) throws Exception {
+        tx.begin();
+        User user = User.createFromOidc(username, username + "@test.com", username);
+        user.persist();
+        Actor actor = new Actor(username, username);
+        actor.userId = user.id;
+        actor.persist();
+        tx.commit();
     }
 
     @Test
-    void shouldReturnProfileForExistingUser() {
+    void shouldReturnProfileForExistingUser() throws Exception {
         String username = "api-profile-alice";
-        registerUser(username);
+        createUser(username);
 
         given()
             .pathParam("username", username)
@@ -72,9 +81,9 @@ class AppApiResourceTest {
     }
 
     @Test
-    void shouldReturnFollowersList() {
+    void shouldReturnFollowersList() throws Exception {
         String username = "api-followers-bob";
-        registerUser(username);
+        createUser(username);
 
         given()
             .pathParam("username", username)
@@ -129,15 +138,13 @@ class AppApiResourceTest {
     }
 
     @Test
-    void shouldAcceptFollowWithAuth() {
-        String username = "api-follow-dave";
-        registerUser(username);
-
-        String body = "{\"actorUrl\":\"https://mastodon.social/users/alice\",\"username\":\"" + username + "\"}";
+    void shouldAcceptFollowWithAuth() throws Exception {
+        // testuser exists in DB via import.sql
+        String body = "{\"actorUrl\":\"https://mastodon.social/users/alice\",\"username\":\"" + TEST_USER + "\"}";
         given()
             .contentType(ContentType.JSON)
             .body(body)
-            .auth().basic(username, "password123")
+            .auth().basic(TEST_USER, TEST_PASSWORD)
         .when()
             .post("/api/federation/follow")
         .then()
@@ -146,15 +153,13 @@ class AppApiResourceTest {
     }
 
     @Test
-    void shouldRejectFollowWithoutActorUrl() {
-        String username = "api-follow-eve";
-        registerUser(username);
-
-        String body = "{\"username\":\"" + username + "\"}";
+    void shouldRejectFollowWithoutActorUrl() throws Exception {
+        // testuser exists in DB via import.sql
+        String body = "{\"username\":\"" + TEST_USER + "\"}";
         given()
             .contentType(ContentType.JSON)
             .body(body)
-            .auth().basic(username, "password123")
+            .auth().basic(TEST_USER, TEST_PASSWORD)
         .when()
             .post("/api/federation/follow")
         .then()
@@ -162,9 +167,9 @@ class AppApiResourceTest {
     }
 
     @Test
-    void shouldReturnFollowingList() {
+    void shouldReturnFollowingList() throws Exception {
         String username = "api-following-frank";
-        registerUser(username);
+        createUser(username);
 
         given()
             .pathParam("username", username)

@@ -25,30 +25,31 @@ import jakarta.inject.Inject;
 import jakarta.transaction.UserTransaction;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.openpace.auth.User;
 
+/**
+ * Tests for the outbox endpoint.
+ * Uses embedded test user (testuser/testuser) for authentication.
+ * Creates actors directly in the DB for outbox tests.
+ */
 @QuarkusTest
 class OutboxResourceTest {
+
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_PASSWORD = "testuser";
 
     @Inject
     UserTransaction tx;
 
-    private void registerUser(String username, String password) throws Exception {
-        given()
-            .contentType("application/json")
-            .body("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}")
-        .when()
-            .post("/api/auth/register")
-        .then()
-            .statusCode(201);
+    private void createActor(String username) throws Exception {
+        tx.begin();
+        Actor actor = new Actor(username, username);
+        actor.persist();
+        tx.commit();
     }
 
     @Test
     void shouldReturnOutboxCollection() throws Exception {
-        tx.begin();
-        Actor actor = new Actor("outbox-alice", "Alice");
-        actor.persist();
-        tx.commit();
+        createActor("outbox-alice");
 
         given()
             .header("Accept", "application/activity+json")
@@ -63,8 +64,7 @@ class OutboxResourceTest {
 
     @Test
     void shouldAcceptCreateActivity() throws Exception {
-        registerUser("outbox-bob", "password123");
-
+        // testuser exists in DB via import.sql, with linked actor
         Map<String, Object> activity = Map.of(
             "type", "Create",
             "object", Map.of(
@@ -75,10 +75,10 @@ class OutboxResourceTest {
 
         given()
             .contentType("application/activity+json")
-            .auth().basic("outbox-bob", "password123")
+            .auth().basic(TEST_USER, TEST_PASSWORD)
             .body(activity)
         .when()
-            .post("/users/outbox-bob/outbox")
+            .post("/users/" + TEST_USER + "/outbox")
         .then()
             .statusCode(201)
             .body("id", notNullValue());
@@ -86,7 +86,7 @@ class OutboxResourceTest {
 
     @Test
     void shouldReturn403ForWrongUser() throws Exception {
-        registerUser("outbox-ghost", "password123");
+        createActor("outbox-ghost");
 
         Map<String, Object> activity = Map.of(
             "type", "Create",
@@ -96,21 +96,20 @@ class OutboxResourceTest {
             )
         );
 
-        // Authenticated as outbox-ghost but posting to outbox-nonexistent — 403
+        // Authenticated as testuser but posting to outbox-ghost's outbox
         given()
             .contentType("application/activity+json")
-            .auth().basic("outbox-ghost", "password123")
+            .auth().basic(TEST_USER, TEST_PASSWORD)
             .body(activity)
         .when()
-            .post("/users/outbox-nonexistent/outbox")
+            .post("/users/outbox-ghost/outbox")
         .then()
             .statusCode(403);
     }
 
     @Test
     void shouldReturn400WhenTypeMissing() throws Exception {
-        registerUser("outbox-notype", "password123");
-
+        // testuser exists in DB via import.sql
         Map<String, Object> activity = Map.of(
             "object", Map.of(
                 "type", "Note",
@@ -120,10 +119,10 @@ class OutboxResourceTest {
 
         given()
             .contentType("application/activity+json")
-            .auth().basic("outbox-notype", "password123")
+            .auth().basic(TEST_USER, TEST_PASSWORD)
             .body(activity)
         .when()
-            .post("/users/outbox-notype/outbox")
+            .post("/users/" + TEST_USER + "/outbox")
         .then()
             .statusCode(400);
     }
