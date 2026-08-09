@@ -55,6 +55,17 @@ public class ActivityPubModelBuilder {
         model.outbox = actor.getOutboxUrl(baseUrl);
         model.followers = actor.getFollowersUrl(baseUrl);
         model.following = actor.getFollowingUrl(baseUrl);
+        model.url = actor.getActorId(baseUrl);
+
+        // Include public key for HTTP Signature verification
+        if (actor.publicKey != null) {
+            ActivityPubModels.Actor.PublicKey pk = new ActivityPubModels.Actor.PublicKey();
+            pk.id = actor.getActorId(baseUrl) + "#main-key";
+            pk.owner = actor.getActorId(baseUrl);
+            pk.publicKeyPem = actor.publicKey;
+            model.publicKey = pk;
+        }
+
         return model;
     }
 
