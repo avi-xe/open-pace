@@ -4,8 +4,8 @@ This document captures potential features, enhancements, and future sprints for 
 
 ## Current Status
 
-**Completed Sprints**: 1-7.5 (MVP Foundation + Consolidation)  
-**Planned Sprints**: 8.5-10 (Federation Protocol, Analytics, Social)  
+**Completed Sprints**: 1-8 (MVP Foundation + Analytics)  
+**Planned Sprints**: 8.5-10 (Federation Protocol, Social, Gear)  
 **Total Planned**: 10+ sprints
 
 ## Feature Comparison: Open Pace vs Strava
@@ -26,6 +26,7 @@ This document captures potential features, enhancements, and future sprints for 
 | PostGIS geospatial storage | Sprint 7 | ✅ Complete |
 | DDD/TDD Consolidation | Sprint 7.5 | ✅ Complete |
 | HTTP Signature library research | Sprint 7.5 | ✅ Complete |
+| Activity analytics & personal records | Sprint 8 | ✅ Complete |
 
 ### ❌ Missing Features (Potential Future Sprints)
 
