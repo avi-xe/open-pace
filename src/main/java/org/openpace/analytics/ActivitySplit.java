@@ -1,0 +1,84 @@
+/*
+ * Copyright 2024 Open Pace Contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.openpace.analytics;
+
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDateTime;
+import java.util.List;
+import org.openpace.activity.Activity;
+
+/**
+ * Represents a per-km or per-mile split for an activity.
+ */
+@Entity
+@Table(name = "activity_split", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"activity_id", "split_number"})
+})
+public class ActivitySplit extends PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "activity_id", nullable = false)
+    public Activity activity;
+
+    @Column(name = "split_number", nullable = false)
+    public int splitNumber;
+
+    @Column(name = "distance_meters", nullable = false)
+    public double distanceMeters;
+
+    @Column(name = "elapsed_time", nullable = false)
+    public long elapsedTime;
+
+    @Column(name = "pace", nullable = false)
+    public double pace;
+
+    @Column(name = "elevation_gain")
+    public double elevationGain;
+
+    @Column(name = "elevation_loss")
+    public double elevationLoss;
+
+    @Column(name = "average_heart_rate")
+    public Integer averageHeartRate;
+
+    @Column(name = "created_at")
+    public LocalDateTime createdAt;
+
+    public ActivitySplit() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    /**
+     * Find all splits for an activity, ordered by split number.
+     */
+    public static List<ActivitySplit> findByActivity(Long activityId) {
+        return find("activity.id = ?1 ORDER BY splitNumber", activityId).list();
+    }
+}
