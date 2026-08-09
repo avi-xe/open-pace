@@ -198,52 +198,10 @@ public class MapResource {
 
     /**
      * Parse trackData JSONB into GpxData object.
+     * Delegates to GpxUtils for shared implementation.
      */
     private GpxData parseTrackData(JsonNode trackData) {
-        try {
-            GpxData gpxData = new GpxData();
-            JsonNode pointsNode = trackData.get("points");
-            JsonNode summaryNode = trackData.get("summary");
-
-            if (pointsNode != null) {
-                gpxData.points = new ArrayList<>();
-                for (JsonNode pointNode : pointsNode) {
-                    TrackPoint point = new TrackPoint();
-                    point.latitude = pointNode.get("lat").asDouble();
-                    point.longitude = pointNode.get("lon").asDouble();
-                    point.elevation = pointNode.has("ele") ? pointNode.get("ele").asDouble() : 0;
-                    point.speed = pointNode.has("speed") ? pointNode.get("speed").asDouble() : 0;
-                    if (pointNode.has("time")) {
-                        point.timestamp = java.time.Instant.parse(pointNode.get("time").asText());
-                    }
-                    gpxData.points.add(point);
-                }
-            }
-
-            if (summaryNode != null) {
-                gpxData.summary = new TrackSummary();
-                gpxData.summary.totalDistance = summaryNode.has("distance") ? summaryNode.get("distance").asDouble() : 0;
-                gpxData.summary.totalDuration = summaryNode.has("duration") ? summaryNode.get("duration").asLong() : 0;
-                gpxData.summary.averagePace = summaryNode.has("pace") ? summaryNode.get("pace").asDouble() : 0;
-                gpxData.summary.elevationGain = summaryNode.has("elevationGain") ? summaryNode.get("elevationGain").asDouble() : 0;
-                gpxData.summary.elevationLoss = summaryNode.has("elevationLoss") ? summaryNode.get("elevationLoss").asDouble() : 0;
-                gpxData.summary.maxSpeed = summaryNode.has("maxSpeed") ? summaryNode.get("maxSpeed").asDouble() : 0;
-                gpxData.summary.averageSpeed = summaryNode.has("averageSpeed") ? summaryNode.get("averageSpeed").asDouble() : 0;
-            }
-
-            // Calculate bounding box
-            if (gpxData.points != null && !gpxData.points.isEmpty()) {
-                gpxData.minLat = gpxData.points.stream().mapToDouble(p -> p.latitude).min().orElse(0);
-                gpxData.maxLat = gpxData.points.stream().mapToDouble(p -> p.latitude).max().orElse(0);
-                gpxData.minLon = gpxData.points.stream().mapToDouble(p -> p.longitude).min().orElse(0);
-                gpxData.maxLon = gpxData.points.stream().mapToDouble(p -> p.longitude).max().orElse(0);
-            }
-
-            return gpxData;
-        } catch (Exception e) {
-            LOG.warning("Failed to parse track data: " + e.getMessage());
-            return null;
-        }
+        return org.openpace.shared.GpxUtils.parseTrackData(trackData);
     }
 
     /**
@@ -260,34 +218,6 @@ public class MapResource {
      * Convert GpxData to a JsonNode for JSONB storage.
      */
     private JsonNode convertGpxDataToJsonNode(GpxData gpxData) {
-        ObjectNode root = objectMapper.createObjectNode();
-
-        // Store track points
-        com.fasterxml.jackson.databind.node.ArrayNode pointsArray = objectMapper.createArrayNode();
-        for (TrackPoint point : gpxData.points) {
-            ObjectNode pointNode = objectMapper.createObjectNode();
-            pointNode.put("lat", point.latitude);
-            pointNode.put("lon", point.longitude);
-            pointNode.put("ele", point.elevation);
-            if (point.timestamp != null) {
-                pointNode.put("time", point.timestamp.toString());
-            }
-            pointNode.put("speed", point.speed);
-            pointsArray.add(pointNode);
-        }
-        root.set("points", pointsArray);
-
-        // Store summary
-        ObjectNode summaryNode = objectMapper.createObjectNode();
-        summaryNode.put("distance", gpxData.summary.totalDistance);
-        summaryNode.put("duration", gpxData.summary.totalDuration);
-        summaryNode.put("pace", gpxData.summary.averagePace);
-        summaryNode.put("elevationGain", gpxData.summary.elevationGain);
-        summaryNode.put("elevationLoss", gpxData.summary.elevationLoss);
-        summaryNode.put("maxSpeed", gpxData.summary.maxSpeed);
-        summaryNode.put("averageSpeed", gpxData.summary.averageSpeed);
-        root.set("summary", summaryNode);
-
-        return root;
+        return org.openpace.shared.GpxUtils.convertGpxDataToJsonNode(gpxData);
     }
 }

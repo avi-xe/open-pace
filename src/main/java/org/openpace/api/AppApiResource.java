@@ -27,16 +27,23 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.openpace.activity.Activity;
-import org.openpace.activity.ActivityPubService;
+import org.openpace.federation.ActivityPubModelBuilder;
+import org.openpace.federation.ActivityDomainMapper;
 import org.openpace.actor.Actor;
 import org.openpace.shared.ErrorResponse;
 import org.openpace.social.Follower;
@@ -59,7 +66,16 @@ public class AppApiResource {
     ObjectMapper objectMapper;
 
     @Inject
-    ActivityPubService activityPubService;
+    ActivityPubModelBuilder modelBuilder;
+
+    @Inject
+    ActivityDomainMapper activityDomainMapper;
+
+    @ConfigProperty(name = "openpace.federation.webfinger.mode", defaultValue = "remote")
+    String webfingerMode;
+
+    @ConfigProperty(name = "openpace.federation.webfinger.local-domain", defaultValue = "localhost:8443")
+    String webfingerLocalDomain;
 
     /**
      * GET user profile as app JSON.
@@ -196,6 +212,130 @@ public class AppApiResource {
         }
 
         return Response.ok(result).build();
+    }
+
+    /**
+     * GET WebFinger proxy endpoint.
+     * Proxies WebFinger queries to remote or local domain based on config.
+     */
+    @GET
+    @Path("/federation/webfinger")
+    @Produces("application/jrd+json")
+    public Response webfinger(@QueryParam("resource") String resource) {
+        if (resource == null || resource.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("MISSING_PARAMETER", "Missing 'resource' parameter"))
+                .build();
+        }
+
+        if (!resource.startsWith("acct:")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_RESOURCE", "Resource must use acct: URI scheme"))
+                .build();
+        }
+
+        String[] parts = resource.substring(5).split("@", 2);
+        if (parts.length != 2) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_RESOURCE", "Resource must be in format acct:username@domain"))
+                .build();
+        }
+
+        String username = parts[0];
+        String domain = parts[1];
+
+        if (username.isBlank() || domain.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_RESOURCE", "Username and domain must not be empty"))
+                .build();
+        }
+
+        String targetDomain = "local".equals(webfingerMode) ? webfingerLocalDomain : domain;
+        String url = "https://" + targetDomain + "/.well-known/webfinger?resource=" + resource;
+
+        LOG.info("WebFinger proxy request: " + url + " (mode=" + webfingerMode + ")");
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Accept", "application/jrd+json")
+                .GET()
+                .build();
+
+            HttpResponse<String> httpResponse = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (httpResponse.statusCode() == HttpURLConnection.HTTP_OK) {
+                return Response.ok(httpResponse.body(), "application/jrd+json").build();
+            } else if (httpResponse.statusCode() == HttpURLConnection.HTTP_NOT_FOUND) {
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor '" + username + "' not found on " + targetDomain))
+                    .build();
+            } else {
+                LOG.warning("WebFinger proxy failed: HTTP " + httpResponse.statusCode());
+                return Response.status(Response.Status.BAD_GATEWAY)
+                    .entity(new ErrorResponse("UPSTREAM_ERROR", "Upstream returned HTTP " + httpResponse.statusCode()))
+                    .build();
+            }
+        } catch (Exception e) {
+            LOG.warning("WebFinger proxy error: " + e.getMessage());
+            return Response.status(Response.Status.BAD_GATEWAY)
+                .entity(new ErrorResponse("PROXY_ERROR", "Failed to contact " + targetDomain + ": " + e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * GET proxy for remote ActivityPub actor profiles.
+     * Avoids CORS issues when browser fetches from remote servers.
+     */
+    @GET
+    @Path("/federation/actor")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getRemoteActor(@QueryParam("url") String actorUrl) {
+        if (actorUrl == null || actorUrl.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("MISSING_PARAMETER", "Missing 'url' parameter"))
+                .build();
+        }
+
+        // Only proxy http/https URLs
+        if (!actorUrl.startsWith("http://") && !actorUrl.startsWith("https://")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_URL", "URL must be http or https"))
+                .build();
+        }
+
+        LOG.info("Actor profile proxy request: " + actorUrl);
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(actorUrl))
+                .header("Accept", "application/activity+json, application/json")
+                .GET()
+                .build();
+
+            HttpResponse<String> httpResponse = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (httpResponse.statusCode() == HttpURLConnection.HTTP_OK) {
+                return Response.ok(httpResponse.body(), "application/activity+json").build();
+            } else if (httpResponse.statusCode() == HttpURLConnection.HTTP_NOT_FOUND) {
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("ACTOR_NOT_FOUND", "Actor not found at " + actorUrl))
+                    .build();
+            } else {
+                LOG.warning("Actor proxy failed: HTTP " + httpResponse.statusCode());
+                return Response.status(Response.Status.BAD_GATEWAY)
+                    .entity(new ErrorResponse("UPSTREAM_ERROR", "Upstream returned HTTP " + httpResponse.statusCode()))
+                    .build();
+            }
+        } catch (Exception e) {
+            LOG.warning("Actor proxy error: " + e.getMessage());
+            return Response.status(Response.Status.BAD_GATEWAY)
+                .entity(new ErrorResponse("PROXY_ERROR", "Failed to contact remote server: " + e.getMessage()))
+                .build();
+        }
     }
 
     /**

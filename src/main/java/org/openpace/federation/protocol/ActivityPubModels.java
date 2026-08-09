@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.openpace.activity.models;
+package org.openpace.federation.protocol;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -59,6 +59,7 @@ public class ActivityPubModels {
 
     /**
      * ActivityPub actor model (Person/Application).
+     * @see <a href="https://www.w3.org/TR/activitystreams-vocabulary/#actor">Actor Types</a>
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Actor {
@@ -73,11 +74,26 @@ public class ActivityPubModels {
         public String outbox;
         public String followers;
         public String following;
-        public String publicKey;
+        public String url;
+
+        // HTTP Signature support
+        public PublicKey publicKey;
+
+        /**
+         * Public key for HTTP Signature verification.
+         * @see <a href="https://docs.joinmastodon.org/spec/security/#http-signatures">HTTP Signatures</a>
+         */
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public static class PublicKey {
+            public String id;
+            public String owner;
+            public String publicKeyPem;
+        }
     }
 
     /**
      * ActivityPub activity model.
+     * @see <a href="https://www.w3.org/TR/activitystreams-vocabulary/#activity">Activity Types</a>
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Activity {
@@ -88,6 +104,27 @@ public class ActivityPubModels {
         public String actor;
         public Object object;
         public String published;
+
+        // AS2 audience/targeting fields
+        public String to;
+        public String cc;
+        public String bcc;
+        public String audience;
+
+        // AS2 activity metadata
+        public String generator;  // e.g., "Open Pace"
+        public String icon;       // Icon URL
+        public String image;      // Image URL
+        public String inReplyTo;  // Reply target
+
+        // AS2 localized content (future use)
+        public Map<String, String> contentMap;
+        public Map<String, String> nameMap;
+
+        /**
+         * For Follow activities: the target actor URL.
+         */
+        @JsonProperty("target")
         public Map<String, String> target;
 
         /**

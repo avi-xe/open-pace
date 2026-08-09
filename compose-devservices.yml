@@ -1,0 +1,11 @@
+services:
+  gotosocial:
+    image: superseriousbusiness/gotosocial:latest
+    ports:
+      - "8443:8443"
+    environment:
+      GTS_BIND_ADDRESS: "0.0.0.0"
+      GTS_PORT: "8443"
+      GTS_ACCOUNTS_REGISTRATION_OPEN: "true"
+      GTS_TLS_CERTIFICATE: ""
+      GTS_TLS_KEY: ""

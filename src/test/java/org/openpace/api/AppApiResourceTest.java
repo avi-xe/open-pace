@@ -174,4 +174,38 @@ class AppApiResourceTest {
             .statusCode(200)
             .body("size()", equalTo(0));
     }
+
+    @Test
+    void shouldResolveRemoteWebFinger() {
+        given()
+            .queryParam("resource", "acct:avixe@mastodon.social")
+        .when()
+            .get("/api/federation/webfinger")
+        .then()
+            .statusCode(200)
+            .body("subject", equalTo("acct:avixe@mastodon.social"))
+            .body("links", notNullValue());
+    }
+
+    @Test
+    void shouldReturn400ForInvalidResource() {
+        given()
+            .queryParam("resource", "invalid-format")
+        .when()
+            .get("/api/federation/webfinger")
+        .then()
+            .statusCode(400)
+            .body("error", equalTo("INVALID_RESOURCE"));
+    }
+
+    @Test
+    void shouldReturn404ForNonexistentUser() {
+        given()
+            .queryParam("resource", "acct:nonexistent-user@mastodon.social")
+        .when()
+            .get("/api/federation/webfinger")
+        .then()
+            .statusCode(404)
+            .body("error", equalTo("ACTOR_NOT_FOUND"));
+    }
 }

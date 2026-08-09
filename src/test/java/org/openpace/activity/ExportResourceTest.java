@@ -26,6 +26,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.UserTransaction;
 import org.junit.jupiter.api.Test;
 import org.openpace.actor.Actor;
+import org.openpace.activity.Visibility;
 
 @QuarkusTest
 class ExportResourceTest {
@@ -120,7 +121,7 @@ class ExportResourceTest {
         activityJson.set("object", objectNode);
 
         Activity activity = activityService.createActivity(actor, activityJson);
-        activity.visibility = "private";
+        activity.visibility = Visibility.PRIVATE;
         activity.persist();
         String activityId = activity.activityId;
         tx.commit();

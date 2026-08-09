@@ -54,6 +54,20 @@ public class Actor extends PanacheEntityBase {
     @Column(name = "created_at")
     public LocalDateTime createdAt;
 
+    /**
+     * RSA public key for HTTP Signature verification (PEM format).
+     * Remote servers fetch this to verify our signed requests.
+     */
+    @Column(name = "public_key", columnDefinition = "TEXT")
+    public String publicKey;
+
+    /**
+     * RSA private key for HTTP Signature signing (PEM format).
+     * Used to sign outbound federation requests.
+     */
+    @Column(name = "private_key", columnDefinition = "TEXT")
+    public String privateKey;
+
     public Actor() {
         this.createdAt = LocalDateTime.now();
     }

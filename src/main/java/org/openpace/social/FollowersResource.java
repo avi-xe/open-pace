@@ -16,8 +16,8 @@
 package org.openpace.social;
 
 import org.openpace.actor.Actor;
-import org.openpace.activity.ActivityPubService;
-import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.federation.ActivityPubModelBuilder;
+import org.openpace.federation.protocol.ActivityPubModels;
 import org.openpace.shared.ErrorResponse;
 
 import jakarta.inject.Inject;
@@ -38,7 +38,7 @@ public class FollowersResource {
     private static final Logger LOG = Logger.getLogger(FollowersResource.class.getName());
 
     @Inject
-    ActivityPubService activityPubService;
+    ActivityPubModelBuilder modelBuilder;
 
     /**
      * GET followers — returns the followers as an OrderedCollection.
@@ -55,7 +55,7 @@ public class FollowersResource {
         }
 
         LOG.info("Returning followers for: " + username);
-        ActivityPubModels.OrderedCollection followers = activityPubService.buildFollowers(actor);
+        ActivityPubModels.OrderedCollection followers = modelBuilder.buildFollowers(actor);
         return Response.ok(followers).build();
     }
 
@@ -78,7 +78,7 @@ public class FollowersResource {
             .map(f -> f.followerActorUrl)
             .toList();
 
-        ActivityPubModels.OrderedCollectionPage page = activityPubService.buildFollowersPage(actor, followerUrls);
+        ActivityPubModels.OrderedCollectionPage page = modelBuilder.buildFollowersPage(actor, followerUrls);
         return Response.ok(page).build();
     }
 
@@ -97,7 +97,7 @@ public class FollowersResource {
         }
 
         LOG.info("Returning following for: " + username);
-        ActivityPubModels.OrderedCollection following = activityPubService.buildFollowing(actor);
+        ActivityPubModels.OrderedCollection following = modelBuilder.buildFollowing(actor);
         return Response.ok(following).build();
     }
 }

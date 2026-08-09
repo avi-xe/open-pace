@@ -21,8 +21,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import org.openpace.actor.Actor;
 import org.openpace.analytics.ComparisonService;
 import org.openpace.analytics.PaceZoneService;
@@ -66,10 +68,11 @@ public class ActivityService {
      * @param activityJson the ActivityPub activity JSON
      * @return the persisted activity entity
      */
+    @Transactional
     public Activity createActivity(Actor actor, JsonNode activityJson) {
         String type = activityJson.has("type") ? activityJson.get("type").asText() : "Create";
         String baseUrl = actor.getActorId("").replace("/users/" + actor.username, "");
-        String activityId = actor.getActorId(baseUrl) + "/activities/" + System.currentTimeMillis();
+        String activityId = actor.getActorId(baseUrl) + "/activities/" + UUID.randomUUID();
 
         Activity activity = new Activity();
         activity.actor = actor;
@@ -101,6 +104,9 @@ public class ActivityService {
                         if (gpxData != null) {
                             activity.gpxData = gpxXml;
                             activity.trackData = convertGpxDataToJsonNode(gpxData);
+
+                            // Populate PostGIS geometry from GPX track points
+                            populateGeometry(activity, gpxData);
 
                             // Auto-populate distance and duration from GPX summary
                             if (activity.objectJson != null && activity.objectJson.isObject()) {
@@ -168,36 +174,40 @@ public class ActivityService {
 
     /**
      * Convert GpxData to a JsonNode for JSONB storage.
+     * Delegates to GpxUtils for shared implementation.
      */
     private JsonNode convertGpxDataToJsonNode(GpxData gpxData) {
-        ObjectNode root = objectMapper.createObjectNode();
+        return org.openpace.shared.GpxUtils.convertGpxDataToJsonNode(gpxData);
+    }
 
-        // Store track points
-        ArrayNode pointsArray = objectMapper.createArrayNode();
-        for (TrackPoint point : gpxData.points) {
-            ObjectNode pointNode = objectMapper.createObjectNode();
-            pointNode.put("lat", point.latitude);
-            pointNode.put("lon", point.longitude);
-            pointNode.put("ele", point.elevation);
-            if (point.timestamp != null) {
-                pointNode.put("time", point.timestamp.toString());
-            }
-            pointNode.put("speed", point.speed);
-            pointsArray.add(pointNode);
+    /**
+     * Populate PostGIS geometry fields from GPX track data.
+     * Builds LineString from track points and extracts start/end Points.
+     */
+    private void populateGeometry(Activity activity, GpxData gpxData) {
+        if (gpxData.points == null || gpxData.points.isEmpty()) {
+            return;
         }
-        root.set("points", pointsArray);
 
-        // Store summary
-        ObjectNode summaryNode = objectMapper.createObjectNode();
-        summaryNode.put("distance", gpxData.summary.totalDistance);
-        summaryNode.put("duration", gpxData.summary.totalDuration);
-        summaryNode.put("pace", gpxData.summary.averagePace);
-        summaryNode.put("elevationGain", gpxData.summary.elevationGain);
-        summaryNode.put("elevationLoss", gpxData.summary.elevationLoss);
-        summaryNode.put("maxSpeed", gpxData.summary.maxSpeed);
-        summaryNode.put("averageSpeed", gpxData.summary.averageSpeed);
-        root.set("summary", summaryNode);
+        org.locationtech.jts.geom.GeometryFactory geometryFactory =
+            new org.locationtech.jts.geom.GeometryFactory(new org.locationtech.jts.geom.PrecisionModel(), 4326);
 
-        return root;
+        // Build coordinate array for LineString
+        org.locationtech.jts.geom.Coordinate[] coordinates =
+            new org.locationtech.jts.geom.Coordinate[gpxData.points.size()];
+
+        for (int i = 0; i < gpxData.points.size(); i++) {
+            TrackPoint point = gpxData.points.get(i);
+            coordinates[i] = new org.locationtech.jts.geom.Coordinate(point.longitude, point.latitude);
+        }
+
+        // Create LineString (simplified for large tracks)
+        if (coordinates.length >= 2) {
+            activity.trackLine = geometryFactory.createLineString(coordinates);
+
+            // Extract start and end points
+            activity.startPoint = geometryFactory.createPoint(coordinates[0]);
+            activity.endPoint = geometryFactory.createPoint(coordinates[coordinates.length - 1]);
+        }
     }
 }

@@ -15,7 +15,9 @@
  */
 package org.openpace.federation;
 
-import org.openpace.activity.models.ActivityPubModels;
+import org.openpace.actor.Actor;
+import org.openpace.federation.protocol.ActivityPubModels;
+import org.openpace.shared.RsaKeyUtils;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -26,7 +28,15 @@ import io.vertx.ext.web.client.WebClient;
 import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.security.Key;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.logging.Logger;
+import org.tomitribe.auth.signatures.Algorithm;
+import org.tomitribe.auth.signatures.Signature;
+import org.tomitribe.auth.signatures.Signer;
 
 /**
  * Delivers activities to remote inboxes using Vert.x WebClient.
@@ -53,27 +63,76 @@ public class FederationDeliveryService {
     }
 
     /**
-     * Deliver an activity to a remote inbox.
+     * Deliver an activity to a remote inbox with HTTP Signature.
      *
      * @param targetInbox the target actor's inbox URL
      * @param activityJson the serialized activity JSON
+     * @param actor the actor signing the request (for private key)
      */
-    public void deliver(String targetInbox, String activityJson) {
+    public void deliver(String targetInbox, String activityJson, Actor actor) {
         LOG.info("Delivering activity to: " + targetInbox);
 
-        HttpRequest<Buffer> request = webClient
-            .request(HttpMethod.POST, targetInbox)
-            .putHeader("Content-Type", "application/activity+json")
-            .putHeader("Accept", "application/activity+json");
+        try {
+            io.vertx.core.json.JsonObject jsonBody = new io.vertx.core.json.JsonObject(activityJson);
 
-        request.sendJsonObject(
-            io.vertx.core.json.JsonObject.mapFrom(
-                new com.fasterxml.jackson.databind.ObjectMapper().convertValue(
-                    com.fasterxml.jackson.databind.ObjectMapper.class,
-                    com.fasterxml.jackson.databind.node.ObjectNode.class
-                )
-            ),
-            response -> {
+            // Create date header for signing
+            String date = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now());
+
+            // Build headers to sign
+            Map<String, String> headers = new LinkedHashMap<>();
+            headers.put("host", extractHost(targetInbox));
+            headers.put("date", date);
+            headers.put("content-type", "application/activity+json");
+
+            // Sign the request if actor has a private key
+            Map<String, String> signedHeaders = headers;
+            if (actor != null && actor.privateKey != null) {
+                try {
+                    Key privateKey = RsaKeyUtils.parsePrivateKey(actor.privateKey);
+                    String keyId = actor.getActorId("") + "#main-key";
+                    
+                    // Create signature configuration
+                    Signature signatureConfig = new Signature(
+                        keyId,
+                        "rsa-sha256",
+                        null,
+                        null,
+                        null,
+                        java.util.Arrays.asList("(request-target)", "host", "date", "content-type")
+                    );
+                    
+                    Signer signer = new Signer(privateKey, signatureConfig);
+                    
+                    // Create signing string and sign
+                    String signingString = signer.createSigningString("post", targetInbox, headers);
+                    Signature signed = signer.sign("post", targetInbox, headers);
+                    
+                    // Add signature headers
+                    signedHeaders = new LinkedHashMap<>(headers);
+                    signedHeaders.put("signature", signed.toString());
+                    signedHeaders.put("authorization", "Signature keyId=\"" + keyId + "\",algorithm=\"rsa-sha256\",headers=\"(request-target) host date content-type\",signature=\"" + signed.getSignature() + "\"");
+                    
+                    LOG.info("Signed request for actor: " + actor.username);
+                } catch (Exception e) {
+                    LOG.warning("Failed to sign request, sending unsigned: " + e.getMessage());
+                }
+            }
+
+            HttpRequest<Buffer> request = webClient
+                .request(HttpMethod.POST, targetInbox)
+                .putHeader("Content-Type", "application/activity+json")
+                .putHeader("Accept", "application/activity+json")
+                .putHeader("Date", date);
+
+            // Add signature header if present
+            if (signedHeaders.containsKey("signature")) {
+                request.putHeader("Signature", signedHeaders.get("signature"));
+            }
+            if (signedHeaders.containsKey("authorization")) {
+                request.putHeader("Authorization", signedHeaders.get("authorization"));
+            }
+
+            request.sendJsonObject(jsonBody, response -> {
                 if (response.succeeded()) {
                     HttpResponse<Buffer> result = response.result();
                     if (result.statusCode() >= 200 && result.statusCode() < 300) {
@@ -84,21 +143,36 @@ public class FederationDeliveryService {
                 } else {
                     LOG.warning("Delivery error to " + targetInbox + ": " + response.cause().getMessage());
                 }
-            }
-        );
+            });
+        } catch (Exception e) {
+            LOG.warning("Failed to parse activity JSON for delivery: " + e.getMessage());
+        }
     }
 
     /**
-     * Deliver an activity as a JSON string to a remote inbox.
+     * Extract host from URL for signing.
+     */
+    private String extractHost(String url) {
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            return uri.getHost() + (uri.getPort() > 0 ? ":" + uri.getPort() : "");
+        } catch (Exception e) {
+            return url;
+        }
+    }
+
+    /**
+     * Deliver an activity as a JSON string to a remote inbox with HTTP Signature.
      *
      * @param targetInbox the target actor's inbox URL
      * @param activity the activity model to serialize and send
+     * @param actor the actor signing the request (for private key)
      */
-    public void deliverActivity(String targetInbox, ActivityPubModels.Activity activity) {
+    public void deliverActivity(String targetInbox, ActivityPubModels.Activity activity, Actor actor) {
         try {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String json = mapper.writeValueAsString(activity);
-            deliver(targetInbox, json);
+            deliver(targetInbox, json, actor);
         } catch (Exception e) {
             LOG.warning("Failed to serialize activity for delivery: " + e.getMessage());
         }

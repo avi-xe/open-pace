@@ -11,7 +11,7 @@ const Federation = {
    */
   async resolveWebFinger(user, domain) {
     try {
-      const url = `/.well-known/webfinger?resource=acct:${user}@${domain}`;
+      const url = `/api/federation/webfinger?resource=acct:${user}@${domain}`;
       const response = await fetch(url, {
         headers: { 'Accept': 'application/jrd+json' }
       });
@@ -30,12 +30,14 @@ const Federation = {
 
   /**
    * Fetch an ActivityPub actor profile from any URL.
-   * Works for both local and remote actors.
+   * Proxies through backend to avoid CORS issues with remote servers.
    */
   async fetchActorProfile(actorUrl) {
     try {
-      const response = await fetch(actorUrl, {
-        headers: { 'Accept': 'application/activity+json, application/json' }
+      // Use backend proxy for all actor fetches (avoids CORS)
+      const proxyUrl = `/api/federation/actor?url=${encodeURIComponent(actorUrl)}`;
+      const response = await fetch(proxyUrl, {
+        headers: { 'Accept': 'application/json' }
       });
 
       if (!response.ok) return null;

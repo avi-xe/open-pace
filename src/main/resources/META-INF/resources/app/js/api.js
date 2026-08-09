@@ -56,7 +56,9 @@ const OpenPaceApi = {
     }
 
     if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json';
+      if (!headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
       options.body = JSON.stringify(options.body);
     }
 
