@@ -26,6 +26,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.openpace.actor.Actor;
+import org.openpace.analytics.ComparisonService;
+import org.openpace.analytics.PaceZoneService;
+import org.openpace.analytics.PersonalRecordService;
+import org.openpace.analytics.SplitService;
 
 /**
  * Service for activity business logic.
@@ -44,6 +48,18 @@ public class ActivityService {
 
     @Inject
     GpxService gpxService;
+
+    @Inject
+    PersonalRecordService personalRecordService;
+
+    @Inject
+    SplitService splitService;
+
+    @Inject
+    PaceZoneService paceZoneService;
+
+    @Inject
+    ComparisonService comparisonService;
 
     /**
      * Create a new activity from an ActivityPub JSON payload.
@@ -108,6 +124,27 @@ public class ActivityService {
         }
 
         activityRepository.persist(activity);
+
+        // Run analytics in the same transaction
+        // These are lightweight calculations that should be part of activity creation
+        try {
+            // Check for personal records
+            personalRecordService.checkForPrs(activity);
+
+            // Calculate splits (per km)
+            splitService.calculateSplits(activity, true);
+
+            // Calculate pace zones
+            paceZoneService.calculateZones(activity);
+
+            // Calculate comparisons vs user average
+            comparisonService.calculateComparisons(activity);
+        } catch (Exception e) {
+            // Log but don't fail activity creation if analytics fail
+            java.util.logging.Logger.getLogger(ActivityService.class.getName())
+                .log(java.util.logging.Level.WARNING, "Analytics calculation failed for activity " + activity.id, e);
+        }
+
         return activity;
     }
 
